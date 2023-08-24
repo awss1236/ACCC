@@ -1,9 +1,15 @@
 module PPrint where
+import CLexer
 import CParser
+
+pPrintUnary :: UnaryOper -> String
+pPrintUnary Minus    = "-"
+pPrintUnary Comp     = "~"
+pPrintUnary LogicNeg = "!"
 
 pPrintExp :: Exp -> String
 pPrintExp (Constant i) = "INT<"++show i++">"
-pPrintExp (UnaryOper (c, e)) = c : pPrintExp e
+pPrintExp (UnaryAct (u, e)) = pPrintUnary u ++ pPrintExp e
 
 pPrintStat :: Statement -> [String]
 pPrintStat (Return exp) = ["RETURN "++pPrintExp exp]

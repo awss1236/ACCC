@@ -3,7 +3,7 @@ module CParser where
 import CLexer
 import Control.Applicative
 
-data Exp          = Constant Int | UnaryOper (Char, Exp) deriving (Show)
+data Exp          = Constant Int | UnaryAct (UnaryOper, Exp) deriving (Show)
 data Statement    = Return Exp deriving (Show)
 data FunctionDecl = FunctionDecl (String, Statement) deriving (Show)
 data Program      = Program FunctionDecl deriving (Show)
@@ -49,7 +49,7 @@ parseSemicolon = Parser $ \case
 parseExp :: Parser Exp
 parseExp = Parser $ \case
                     (NumLiteral i: rest) -> Just (Constant i, rest)
-                    (Unary c: rest)      -> (\(e, t) -> (UnaryOper (c, e), t))
+                    (Unary c: rest)      -> (\(e, t) -> (UnaryAct (c, e), t))
                                                   <$> runParser parseExp rest
                     _                    -> Nothing
 

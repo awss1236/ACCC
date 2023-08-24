@@ -4,7 +4,8 @@ import Control.Monad
 import Control.Applicative
 import Data.Char
 
-data Token  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon | Unary Char deriving (Show, Eq)
+data UnaryOper = Minus | Comp | LogicNeg deriving (Show, Eq)
+data Token  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon | Unary UnaryOper deriving (Show, Eq)
 
 newtype Lexer a = Lexer {runLexer :: String -> Maybe (a, String)}
 
@@ -45,11 +46,11 @@ charP c = Lexer f
 stringP :: String -> Lexer String
 stringP = traverse charP
 
-semicolonP :: Lexer Token
 semicolonP = Semicolon <$ charP ';'
 
-unaryP :: Lexer Token
-unaryP = Unary <$> foldr (\n o -> o <|> charP n) empty "~-!"
+minusP     = Unary Minus     <$ charP '-'
+compP      = Unary Comp      <$ charP '~'
+logicNegP  = Unary LogicNeg  <$ charP '!'
 
 keywords = ["auto","break","case","char","const","continue","default","do","double","else","enum","extern","float","for","goto","if","int","long","register","return","short","signed","sizeof","static","struct","switch","typedef","union","unsigned","void","volatile","while"]
 keywordP :: Lexer Token
@@ -65,7 +66,7 @@ parenP :: Lexer Token
 parenP = Paren <$> foldr ((<|>) . charP) empty "(){}[]"
 
 tokenP :: Lexer Token
-tokenP = let nttws = keywordP <|> variableP <|> numberP <|> parenP <|> unaryP <|> semicolonP in (nttws <* ws) <|> (ws *> nttws) <|> nttws <|> (ws *> nttws <* ws)
+tokenP = let nttws = keywordP <|> variableP <|> numberP <|> parenP <|> semicolonP <|> minusP <|> compP <|> logicNegP in (nttws <* ws) <|> (ws *> nttws) <|> nttws <|> (ws *> nttws <* ws)
 
 lexC :: String -> Maybe [Token]
 lexC "" = Just []
