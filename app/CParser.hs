@@ -68,11 +68,7 @@ parseFactor = parseInt <|>
                                             _                     -> Nothing)
 
 parseTerm  :: Parser Term
-parseTerm = (<|>) (Parser (\xs -> do
-                                   (f, r1) <- runParser parseFactor xs
-                                   (u, gpr) <- runParser goofyP r1
-                                   Just (u (Fac f), gpr)))
-                  (Fac <$> parseFactor)
+parseTerm = (Fac <$> parseFactor) <**> goofyP <|> Fac <$> parseFactor
       where goofyP = Parser (\xs -> do
                                      (op', r1) <- runParser (parseOr [Mult, Div]) xs
                                      let op = if op' == Mult then BMult else BDiv
@@ -82,11 +78,7 @@ parseTerm = (<|>) (Parser (\xs -> do
                                      else let (u, grr) = fromJust goofyRes in Just (\x -> u $ TBAct (op, x, f), grr))
 
 parseExp :: Parser Exp
-parseExp = (<|>) (Parser (\xs -> do
-                                  (t, r1) <- runParser parseTerm xs
-                                  (f, gpr) <- runParser goofyP r1
-                                  Just (f (Ter t), gpr)))
-                 (Ter <$> parseTerm)
+parseExp = (Ter <$> parseTerm) <**> goofyP <|> Ter <$> parseTerm
       where goofyP = Parser (\xs -> do
                                      (op', r1) <- runParser (parseOr [Add, Minus]) xs
                                      let op = if op' == Add then BAdd else BSub
