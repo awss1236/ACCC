@@ -69,7 +69,9 @@ parenP :: Lexer Token
 parenP = Paren <$> foldr ((<|>) . charP) empty "(){}[]"
 
 tokenP :: Lexer Token
-tokenP = let nttws = keywordP <|> variableP <|> numberP <|> parenP <|> semicolonP <|> minusP <|> compP <|> logicNegP in (nttws <* ws) <|> (ws *> nttws) <|> nttws <|> (ws *> nttws <* ws)
+tokenP = let nttws = keywordP <|> variableP <|> numberP <|> parenP <|> semicolonP
+                 <|> minusP <|> compP <|> logicNegP <|> addP <|> multP <|> divP
+            in (nttws <* ws) <|> (ws *> nttws) <|> nttws <|> (ws *> nttws <* ws)
 
 lexC :: String -> Maybe [Token]
 lexC "" = Just []

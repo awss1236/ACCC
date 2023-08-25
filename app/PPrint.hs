@@ -3,13 +3,18 @@ import CLexer
 import CParser
 
 pPrintUnary :: UnaryOper -> String
-pPrintUnary Minus    = "-"
-pPrintUnary Comp     = "~"
-pPrintUnary LogicNeg = "!"
+pPrintUnary UMinus    = "-"
+pPrintUnary UComp     = "~"
+pPrintUnary ULogicNeg = "!"
+
+pPrintFactor :: Factor -> String
+pPrintFactor (Parens e) = "(" ++ pPrintExp e ++ ")"
+
+pPrintTerm :: Term -> String
+pPrintTerm (Fac f) = pPrintFactor f
 
 pPrintExp :: Exp -> String
-pPrintExp (Constant i) = "INT<"++show i++">"
-pPrintExp (UnaryAct (u, e)) = pPrintUnary u ++ pPrintExp e
+pPrintExp (Ter t) = pPrintTerm t
 
 pPrintStat :: Statement -> [String]
 pPrintStat (Return exp) = ["RETURN "++pPrintExp exp]
