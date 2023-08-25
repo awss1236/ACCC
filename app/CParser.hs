@@ -3,7 +3,13 @@ module CParser where
 import CLexer
 import Control.Applicative
 
-data Exp          = Constant Int | UnaryAct (UnaryOper, Exp) deriving (Show)
+data UnaryOper  = UMinus | UComp | ULogicNeg    deriving (Show)
+
+data Factor       = Parens Exp   | UnaryAct (UnaryOper, Factor) | Constant Int deriving (Show)
+data BinaryOper1  = BMult | BDiv deriving (Show)
+data Term         = Fac Factor   | TBAct    (BinaryOper1, Term, Factor) deriving (Show)
+data BinaryOper2  = BAdd  | BSub deriving (Show)
+data Exp          = Ter Term     | EBAct    (BinaryOper1, Exp,  Term) deriving (Show)
 data Statement    = Return Exp deriving (Show)
 data FunctionDecl = FunctionDecl (String, Statement) deriving (Show)
 data Program      = Program FunctionDecl deriving (Show)
@@ -44,14 +50,16 @@ parseToks (t:rest) = parseToken t <* parseToks rest
 parseSemicolon :: Parser ()
 parseSemicolon = Parser $ \case
                           (Semicolon : rest) -> Just ((), rest)
-                          _                   -> Nothing
+                          _                  -> Nothing
+
+parseFactor :: Parser Factor
+parseFactor = Parens <$> (parseExp <* parseToken (Paren ')')) <|> (\f -> UnaryAct (UMinus   , f)) <$> parseFactor <|> (\f -> UnaryAct (UComp    , f)) <$> parseFactor <|> (\f -> UnaryAct (ULogicNeg, f)) <$> parseFactor
+
+parseTerm  :: Parser Term
+parseTerm = undefined
 
 parseExp :: Parser Exp
-parseExp = Parser $ \case
-                    (NumLiteral i: rest) -> Just (Constant i, rest)
-                    (Unary c: rest)      -> (\(e, t) -> (UnaryAct (c, e), t))
-                                                  <$> runParser parseExp rest
-                    _                    -> Nothing
+parseExp = undefined
 
 parseStatement :: Parser Statement
 parseStatement = p1 *> (Return <$> parseExp) <* parseSemicolon

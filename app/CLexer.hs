@@ -4,8 +4,7 @@ import Control.Monad
 import Control.Applicative
 import Data.Char
 
-data UnaryOper = Minus | Comp | LogicNeg deriving (Show, Eq)
-data Token  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon | Unary UnaryOper deriving (Show, Eq)
+data Token  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon | Minus | Comp | LogicNeg | Add | Mult | Div deriving (Show, Eq)
 
 newtype Lexer a = Lexer {runLexer :: String -> Maybe (a, String)}
 
@@ -48,9 +47,13 @@ stringP = traverse charP
 
 semicolonP = Semicolon <$ charP ';'
 
-minusP     = Unary Minus     <$ charP '-'
-compP      = Unary Comp      <$ charP '~'
-logicNegP  = Unary LogicNeg  <$ charP '!'
+minusP     = Minus     <$ charP '-'
+compP      = Comp      <$ charP '~'
+logicNegP  = LogicNeg  <$ charP '!'
+
+addP       = Add      <$ charP '+'
+multP      = Mult     <$ charP '*'
+divP       = Div      <$ charP '/'
 
 keywords = ["auto","break","case","char","const","continue","default","do","double","else","enum","extern","float","for","goto","if","int","long","register","return","short","signed","sizeof","static","struct","switch","typedef","union","unsigned","void","volatile","while"]
 keywordP :: Lexer Token
