@@ -4,13 +4,11 @@ import CLexer
 import Control.Applicative
 import Data.Maybe
 
-data UnaryOper  = UMinus | UComp | ULogicNeg    deriving (Show)
-
-data Factor       = Parens Exp   | UnaryAct (UnaryOper, Factor) | Constant Int deriving (Show)
+data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
 data BinaryOper1  = BMult | BDiv deriving (Show)
-data Term         = Fac Factor   | TBAct    (BinaryOper1, Term,  Factor) deriving (Show)
 data BinaryOper2  = BAdd  | BSub deriving (Show)
-data Exp          = Ter Term     | EBAct    (BinaryOper2, Exp,   Term) deriving (Show)
+data Exp          = Constant Int | UnaryAct (UnaryOper, Exp) | TBAct (BinaryOper1, Exp, Exp) | EBAct (BinaryOper2, Exp, Exp) deriving (Show)
+
 data Statement    = Return Exp deriving (Show)
 data FunctionDecl = FunctionDecl (String, Statement) deriving (Show)
 data Program      = Program FunctionDecl deriving (Show)
@@ -57,18 +55,18 @@ parseSemicolon = Parser $ \case
                           (Semicolon : rest) -> Just ((), rest)
                           _                  -> Nothing
 
-parseFactor :: Parser Factor
+parseFactor :: Parser Exp
 parseFactor = parseInt <|>
                 ((\f -> UnaryAct (UMinus   , f)) <$> (parseToken Minus    *> parseFactor)) <|>
                 ((\f -> UnaryAct (UComp    , f)) <$> (parseToken Comp     *> parseFactor)) <|>
                 ((\f -> UnaryAct (ULogicNeg, f)) <$> (parseToken LogicNeg *> parseFactor)) <|>
-                (Parens <$> (parseToken (Paren '(') *> parseExp <* parseToken (Paren ')')))
+                (parseToken (Paren '(') *> parseExp <* parseToken (Paren ')'))
       where parseInt = Constant <$> Parser (\case
                                             (NumLiteral i : rest) -> Just (i, rest)
                                             _                     -> Nothing)
 
-parseTerm  :: Parser Term
-parseTerm = (Fac <$> parseFactor) <**> goofyP <|> Fac <$> parseFactor
+parseTerm  :: Parser Exp
+parseTerm = parseFactor <**> goofyP <|> parseFactor
       where goofyP = Parser (\xs -> do
                                      (op', r1) <- runParser (parseOr [Mult, Div]) xs
                                      let op = if op' == Mult then BMult else BDiv
@@ -78,7 +76,7 @@ parseTerm = (Fac <$> parseFactor) <**> goofyP <|> Fac <$> parseFactor
                                      else let (u, grr) = fromJust goofyRes in Just (\x -> u $ TBAct (op, x, f), grr))
 
 parseExp :: Parser Exp
-parseExp = (Ter <$> parseTerm) <**> goofyP <|> Ter <$> parseTerm
+parseExp = parseTerm <**> goofyP <|> parseTerm
       where goofyP = Parser (\xs -> do
                                      (op', r1) <- runParser (parseOr [Add, Minus]) xs
                                      let op = if op' == Add then BAdd else BSub

@@ -4,3 +4,4 @@ write_a_c_compiler-master
 sccmp
 *.c
 *.s
+*.pdf
