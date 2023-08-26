@@ -4,7 +4,9 @@ import Control.Monad
 import Control.Applicative
 import Data.Char
 
-data Token  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon | Minus | Comp | LogicNeg | Add | Mult | Div deriving (Show, Eq)
+data Token  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon
+            | Minus | Comp | LogicNeg
+            | Add | Mult | Div deriving (Show, Eq)
 
 newtype Lexer a = Lexer {runLexer :: String -> Maybe (a, String)}
 

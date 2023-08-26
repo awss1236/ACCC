@@ -9,7 +9,7 @@ pPrintUnary ULogicNeg = "!"
 
 pPrintFactor :: Exp -> String
 pPrintFactor (Constant i) = show i
-pPrintFactor (UnaryAct (u, f)) = pPrintUnary u ++ pPrintFactor f
+pPrintFactor (UnaryAct (u, e)) = pPrintUnary u ++ pPrintExp e
 
 pPrintB1 :: BinaryOper1 -> String
 pPrintB1 BMult = "*"
