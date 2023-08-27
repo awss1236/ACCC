@@ -6,7 +6,7 @@ import Data.Char
 
 data Token  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon
             | Minus | Comp | LogicNeg
-            | Add | Mult | Div deriving (Show, Eq)
+            | Add | Mult | Div | And | Or | Equ | Nqu | Lt | Gt | Le | Ge deriving (Show, Eq)
 
 newtype Lexer a = Lexer {runLexer :: String -> Maybe (a, String)}
 
@@ -56,6 +56,14 @@ logicNegP  = LogicNeg  <$ charP '!'
 addP       = Add      <$ charP '+'
 multP      = Mult     <$ charP '*'
 divP       = Div      <$ charP '/'
+andP       = And      <$ charP '&' <* charP '&'
+orP        = Or       <$ charP '|' <* charP '|'
+equP       = Equ      <$ charP '=' <* charP '='
+nquP       = Nqu      <$ charP '!' <* charP '='
+ltP        = Lt       <$ charP '<'
+gtP        = Gt       <$ charP '>'
+leP        = Le       <$ charP '<' <* charP '='
+geP        = Ge       <$ charP '>' <* charP '='
 
 keywords = ["auto","break","case","char","const","continue","default","do","double","else","enum","extern","float","for","goto","if","int","long","register","return","short","signed","sizeof","static","struct","switch","typedef","union","unsigned","void","volatile","while"]
 keywordP :: Lexer Token
