@@ -5,9 +5,8 @@ import Control.Applicative
 import Data.Maybe
 
 data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
-data BinaryOper1  = BMult | BDiv deriving (Show)
-data BinaryOper2  = BAdd  | BSub deriving (Show)
-data Exp          = Constant Int | UnaryAct (UnaryOper, Exp) | TBAct (BinaryOper1, Exp, Exp) | EBAct (BinaryOper2, Exp, Exp) deriving (Show)
+data BinaryOper  = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
+data Exp          = Constant Int | UnaryAct (UnaryOper, Exp) | BinAct (BinaryOper, Exp, Exp) deriving (Show)
 
 data Statement    = Return Exp deriving (Show)
 data FunctionDecl = FunctionDecl (String, Statement) deriving (Show)
@@ -72,8 +71,8 @@ parseTerm = parseFactor <**> goofyP <|> parseFactor
                                      let op = if op' == Mult then BMult else BDiv
                                      (f, r2) <- runParser parseFactor r1
                                      let goofyRes = runParser goofyP r2
-                                     if isNothing goofyRes then Just (\x -> TBAct (op, x, f), r2)
-                                     else let (u, grr) = fromJust goofyRes in Just (\x -> u $ TBAct (op, x, f), grr))
+                                     if isNothing goofyRes then Just (\x -> BinAct (op, x, f), r2)
+                                     else let (u, grr) = fromJust goofyRes in Just (\x -> u $ BinAct (op, x, f), grr))
 
 parseExp :: Parser Exp
 parseExp = parseTerm <**> goofyP <|> parseTerm
@@ -82,8 +81,29 @@ parseExp = parseTerm <**> goofyP <|> parseTerm
                                      let op = if op' == Add then BAdd else BSub
                                      (t, r2) <- runParser parseTerm r1
                                      let goofyRes = runParser goofyP r2
-                                     if isNothing goofyRes then Just (\x -> EBAct (op, x, t), r2)
-                                     else let (f, grr) = fromJust goofyRes in Just (\x -> f $ EBAct (op, x, t), grr))
+                                     if isNothing goofyRes then Just (\x -> BinAct (op, x, t), r2)
+                                     else let (f, grr) = fromJust goofyRes in Just (\x -> f $ BinAct (op, x, t), grr))
+
+ggP :: [Token] -> Parser(Exp -> Exp)
+ggP ts = Parser (\xs -> do
+                      (op', r1) <- runParser (parseOr ts) xs
+                      let op = tToB op'
+                      (t, r2) <- runParser parseTerm r1
+                      let goofyRes = runParser (ggP ts) r2
+                      if isNothing goofyRes then Just (\x -> BinAct (op, x, t), r2)
+                      else let (f, grr) = fromJust goofyRes in Just (\x -> f $ BinAct (op, x, t), grr))
+      where tToB = \case
+                    Add -> BAdd
+                    Mult -> BMult
+                    Div -> BDiv
+                    And -> BAnd
+                    Or -> BOr
+                    Equ -> BEqu
+                    Nqu -> BNqu
+                    Lt -> BLt
+                    Gt -> BGt
+                    Le -> BLe
+                    Ge -> BGe
 
 parseStatement :: Parser Statement
 parseStatement = p1 *> (Return <$> parseExp) <* parseSemicolon
