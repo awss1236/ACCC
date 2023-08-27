@@ -56,12 +56,12 @@ logicNegP  = LogicNeg  <$ charP '!'
 addP       = Add      <$ charP '+'
 multP      = Mult     <$ charP '*'
 divP       = Div      <$ charP '/'
+ltP        = Lt       <$ charP '<'
+gtP        = Gt       <$ charP '>'
 andP       = And      <$ charP '&' <* charP '&'
 orP        = Or       <$ charP '|' <* charP '|'
 equP       = Equ      <$ charP '=' <* charP '='
 nquP       = Nqu      <$ charP '!' <* charP '='
-ltP        = Lt       <$ charP '<'
-gtP        = Gt       <$ charP '>'
 leP        = Le       <$ charP '<' <* charP '='
 geP        = Ge       <$ charP '>' <* charP '='
 
@@ -80,7 +80,8 @@ parenP = Paren <$> foldr ((<|>) . charP) empty "(){}[]"
 
 tokenP :: Lexer Token
 tokenP = let nttws = keywordP <|> variableP <|> numberP <|> parenP <|> semicolonP
-                 <|> minusP <|> compP <|> logicNegP <|> addP <|> multP <|> divP
+                 <|> minusP <|> compP <|> logicNegP
+                 <|> addP <|> multP <|> divP <|> ltP <|> gtP <|> andP <|> orP <|> equP <|> nquP <|> leP <|> geP
             in (nttws <* ws) <|> (ws *> nttws) <|> nttws <|> (ws *> nttws <* ws)
 
 lexC :: String -> Maybe [Token]
