@@ -1,6 +1,7 @@
 dist-newstyle
 write_a_c_compiler-master
 *
+!app
 !*.hs
 !*.bat
 !*.sh

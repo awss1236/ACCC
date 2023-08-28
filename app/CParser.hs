@@ -65,31 +65,22 @@ parseFactor = parseInt <|>
                                             _                     -> Nothing)
 
 parseTerm  :: Parser Exp
-parseTerm = parseFactor <**> goofyP <|> parseFactor
-      where goofyP = Parser (\xs -> do
-                                     (op', r1) <- runParser (parseOr [Mult, Div]) xs
-                                     let op = if op' == Mult then BMult else BDiv
-                                     (f, r2) <- runParser parseFactor r1
-                                     let goofyRes = runParser goofyP r2
-                                     if isNothing goofyRes then Just (\x -> BinAct (op, x, f), r2)
-                                     else let (u, grr) = fromJust goofyRes in Just (\x -> u $ BinAct (op, x, f), grr))
+parseTerm = let p = parseFactor in p <**> (ggP p [Mult, Div]) <|> p
+
+parseAddExp = let p = parseTerm   in p <**> (ggP p [Add, Minus]) <|> p
+parseRelExp = let p = parseAddExp in p <**> (ggP p [Le, Ge, Lt, Gt]) <|> p
+parseEquExp = let p = parseRelExp in p <**> (ggP p [Equ, Nqu]) <|> p
+parseAndExp = let p = parseEquExp in p <**> (ggP p [And]) <|> p
 
 parseExp :: Parser Exp
-parseExp = parseTerm <**> goofyP <|> parseTerm
-      where goofyP = Parser (\xs -> do
-                                     (op', r1) <- runParser (parseOr [Add, Minus]) xs
-                                     let op = if op' == Add then BAdd else BSub
-                                     (t, r2) <- runParser parseTerm r1
-                                     let goofyRes = runParser goofyP r2
-                                     if isNothing goofyRes then Just (\x -> BinAct (op, x, t), r2)
-                                     else let (f, grr) = fromJust goofyRes in Just (\x -> f $ BinAct (op, x, t), grr))
+parseExp = let p = parseAndExp in p <**> (ggP p [Or]) <|> p
 
-ggP :: [Token] -> Parser(Exp -> Exp)
-ggP ts = Parser (\xs -> do
+ggP :: Parser Exp -> [Token] -> Parser(Exp -> Exp)
+ggP l ts = Parser (\xs -> do
                       (op', r1) <- runParser (parseOr ts) xs
                       let op = tToB op'
-                      (t, r2) <- runParser parseTerm r1
-                      let goofyRes = runParser (ggP ts) r2
+                      (t, r2) <- runParser l r1
+                      let goofyRes = runParser (ggP l ts) r2
                       if isNothing goofyRes then Just (\x -> BinAct (op, x, t), r2)
                       else let (f, grr) = fromJust goofyRes in Just (\x -> f $ BinAct (op, x, t), grr))
       where tToB = \case
