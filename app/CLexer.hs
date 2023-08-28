@@ -4,89 +4,92 @@ import Control.Monad
 import Control.Applicative
 import Data.Char
 
-data Token  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon
-            | Minus | Comp | LogicNeg
-            | Add | Mult | Div | And | Or | Equ | Nqu | Lt | Gt | Le | Ge deriving (Show, Eq)
+data TokenId  = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon
+              | Minus | Comp | LogicNeg
+              | Add | Mult | Div | And | Or | Equ | Nqu | Lt | Gt | Le | Ge deriving (Show, Eq)
 
-newtype Lexer a = Lexer {runLexer :: String -> Maybe (a, String)}
+type Position = (String, Int, Int)
+type Token = (TokenId, Position)
+
+newtype Lexer a = Lexer {runLexer :: String -> Maybe ((a, Int, Int), String)}
 
 instance Functor Lexer where
   fmap f (Lexer a) = Lexer $ \s -> do
-                          (x, input') <- a s
-                          Just (f x, input')
+                          ((x, p, l), input') <- a s
+                          Just ((f x, p, l), input')
 
 instance Applicative Lexer where
-  pure a = Lexer $ \s -> Just (a, s)
+  pure a = Lexer $ \s -> Just ((a, 0, 0), s)
   (<*>) (Lexer f) (Lexer a) = Lexer $ \s -> do
-                                    (jf, in1) <- f s
-                                    (ja, in2) <- a in1
-                                    Just (jf ja, in2)
+                                    ((jf, p1, l1), in1) <- f s
+                                    ((ja, p2, l2), in2) <- a in1
+                                    Just ((jf ja, p1+p2, l1+l2), in2)
 
 instance Alternative Lexer where
   empty = Lexer $ const Nothing
   (Lexer a) <|> (Lexer b) = Lexer $ \s -> a s <|> b s
 
-spanP :: (Char -> Bool) -> Lexer String
-spanP f = Lexer $ \s -> let x = span f s in if null $ fst x then Nothing else Just x
+{--spanL :: (Char -> Bool) -> Lexer String
+spanL f = Lexer $ \s -> let x = span f s in if null $ fst x then Nothing else Just x
 
 ws :: Lexer ()
-ws = void $ spanP isSpace
+ws = void $ spanL isSpace
 
-peekCharP :: (Char -> Bool) -> Lexer Char
-peekCharP f = Lexer $ \s -> if null s || f (head s) then Just (head s, s) else Nothing
+peekCharL :: (Char -> Bool) -> Lexer Char
+peekCharL f = Lexer $ \s -> if null s || f (head s) then Just (head s, s) else Nothing
 
-predCharP :: (Char -> Bool) -> Lexer Char
-predCharP f = Lexer $ \s -> if null s || f (head s) then Just (head s, tail s) else Nothing
-
-charP :: Char -> Lexer Char
-charP c = Lexer f
+predCharL :: (Char -> Bool) -> Lexer Char
+predCharL f = Lexer $ \s -> if null s || f (head s) then Just (head s, tail s) else Nothing
+--}
+charL :: Char -> Lexer Char
+charL c = Lexer f
   where
     f [] = Nothing
-    f (x:xs) = if x == c then Just (c, xs) else Nothing
+    f (x:xs) = if x == c then Just (if c == '\n' then (c, 0, 1) else (c, 1, 0), xs) else Nothing
 
-stringP :: String -> Lexer String
-stringP = traverse charP
+stringL :: String -> Lexer String
+stringL = traverse charL
+{--
+semicolonL = Semicolon <$ charL ';'
 
-semicolonP = Semicolon <$ charP ';'
+minusL     = Minus     <$ charL '-'
+compL      = Comp      <$ charL '~'
+logicNegL  = LogicNeg  <$ charL '!'
 
-minusP     = Minus     <$ charP '-'
-compP      = Comp      <$ charP '~'
-logicNegP  = LogicNeg  <$ charP '!'
-
-addP       = Add      <$ charP '+'
-multP      = Mult     <$ charP '*'
-divP       = Div      <$ charP '/'
-ltP        = Lt       <$ charP '<'
-gtP        = Gt       <$ charP '>'
-andP       = And      <$ charP '&' <* charP '&'
-orP        = Or       <$ charP '|' <* charP '|'
-equP       = Equ      <$ charP '=' <* charP '='
-nquP       = Nqu      <$ charP '!' <* charP '='
-leP        = Le       <$ charP '<' <* charP '='
-geP        = Ge       <$ charP '>' <* charP '='
+addL       = Add      <$ charL '+'
+multL      = Mult     <$ charL '*'
+divL       = Div      <$ charL '/'
+ltL        = Lt       <$ charL '<'
+gtL        = Gt       <$ charL '>'
+andL       = And      <$ charL '&' <* charL '&'
+orL        = Or       <$ charL '|' <* charL '|'
+equL       = Equ      <$ charL '=' <* charL '='
+nquL       = Nqu      <$ charL '!' <* charL '='
+leL        = Le       <$ charL '<' <* charL '='
+geL        = Ge       <$ charL '>' <* charL '='
 
 keywords = ["auto","break","case","char","const","continue","default","do","double","else","enum","extern","float","for","goto","if","int","long","register","return","short","signed","sizeof","static","struct","switch","typedef","union","unsigned","void","volatile","while"]
-keywordP :: Lexer Token
-keywordP = Keyword <$> foldr (\a b -> b <|> (stringP a <* peekCharP (not.isAlphaNum))) empty keywords
+keywordL :: Lexer (Token, Int, Int)
+keywordL = Keyword <$> foldr (\a b -> b <|> (stringL a <* peekCharL (not.isAlphaNum))) empty keywords
 
-variableP :: Lexer Token
-variableP = Variable <$> (liftA2 (++) (spanP (\c -> c == '_' || isAlpha c)) (spanP (\c -> c == '_' || isAlphaNum c)) <|> spanP (\c -> c == '_' || isAlpha c))
+variableL :: Lexer Token
+variableL = Variable <$> (liftA2 (++) (spanL (\c -> c == '_' || isAlpha c)) (spanL (\c -> c == '_' || isAlphaNum c)) <|> spanL (\c -> c == '_' || isAlpha c))
 
-numberP :: Lexer Token
-numberP = NumLiteral . read <$> spanP isDigit <* peekCharP (not . isAlpha)
+numberL :: Lexer Token
+numberL = NumLiteral . read <$> spanL isDigit <* peekCharL (not . isAlpha)
 
-parenP :: Lexer Token
-parenP = Paren <$> foldr ((<|>) . charP) empty "(){}[]"
+parenL :: Lexer Token
+parenL = Laren <$> foldr ((<|>) . charL) empty "(){}[]"
 
-tokenP :: Lexer Token
-tokenP = let nttws = keywordP <|> variableP <|> numberP <|> parenP <|> semicolonP
-                 <|> minusP <|> compP <|> logicNegP
-                 <|> addP <|> multP <|> divP <|> ltP <|> gtP <|> andP <|> orP <|> equP <|> nquP <|> leP <|> geP
+tokenL :: Lexer (TokenId, Int, Int)
+tokenL = let nttws = keywordL <|> variableL <|> numberL <|> parenL <|> semicolonL
+                 <|> minusL <|> compL <|> logicNegL
+                 <|> addL <|> multL <|> divL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> leL <|> geL
             in (nttws <* ws) <|> (ws *> nttws) <|> nttws <|> (ws *> nttws <* ws)
 
 lexC :: String -> Maybe [Token]
 lexC "" = Just []
 lexC s  = sequenceA $ f s where
-                f :: String -> [Maybe Token]
+                f :: String -> [Maybe (Token, Int, Int)]
                 f "" = []
-                f s  = let r = runLexer tokenP s in if isNothing r then [Nothing] else let (t, rest) = fromJust r in Just t : f rest
+                f s  = let r = runLexer tokenL s in if isNothing r then [Nothing] else let (t, rest) = fromJust r in Just t : f rest--}
