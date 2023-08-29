@@ -46,6 +46,9 @@ charL c = Lexer f
     f [] = Nothing
     f (x:xs) = if x == c then Just (if c == '\n' then (c, 0, 1) else (c, 1, 0), xs) else Nothing
 
+eofL :: Lexer ()
+eofL = Lexer $ \s -> if null s then Just (((), 0, 0), s) else Nothing
+
 stringL :: String -> Lexer String
 stringL = traverse charL
 
@@ -69,7 +72,7 @@ geL        = Ge       <$ charL '>' <* charL '='
 
 keywords = ["auto","break","case","char","const","continue","default","do","double","else","enum","extern","float","for","goto","if","int","long","register","return","short","signed","sizeof","static","struct","switch","typedef","union","unsigned","void","volatile","while"]
 keywordL :: Lexer Token
-keywordL = Keyword <$> foldr (\a b -> b <|> (stringL a <* peekCharL (not.isAlphaNum))) empty keywords
+keywordL = Keyword <$> foldr (\a b -> b <|> (stringL a <* peekCharL (not.isAlphaNum) <|> stringL a <* eofL)) empty keywords
 
 variableL :: Lexer Token
 variableL = Variable <$> (liftA2 (++) (spanL (\c -> c == '_' || isAlpha c)) (spanL (\c -> c == '_' || isAlphaNum c)) <|> spanL (\c -> c == '_' || isAlpha c))
@@ -84,11 +87,17 @@ tokenL :: Lexer Token
 tokenL = let nttws = keywordL <|> variableL <|> numberL <|> parenL <|> semicolonL
                  <|> minusL <|> compL <|> logicNegL
                  <|> addL <|> multL <|> divL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> leL <|> geL
-            in (ws *> nttws <* ws) <|> (ws *> nttws) <|> nttws
-{-
-lexC :: String -> Maybe [Token]
+            in (ws *> nttws <* ws) <|> (nttws <* ws) <|> nttws
+
+lexC :: String -> Maybe [(Token, Int, Int)]
 lexC "" = Just []
-lexC s  = sequenceA $ f s where
-                f :: String -> [Maybe (Token, Int, Int)]
-                f "" = []
-                f s  = let r = runLexer tokenL s in if isNothing r then [Nothing] else let (t, rest) = fromJust r in Just t : f rest-}
+lexC s  = let msws = runLexer ws s in if isNothing msws then
+              sequenceA $ f (0, 0) s
+          else
+            let ((_, sx, sy), s') = fromJust msws in
+              sequenceA $ f (sx, sy) s'
+              where
+                f :: (Int, Int) -> String -> [Maybe (Token, Int, Int)]
+                f _ "" = []
+                f (x, y) s  = let r = runLexer tokenL s in if isNothing r then [Nothing] else let ((t, o1, o2), rest) = fromJust r in Just (t, x, y) : f (offset (x, y) (o1, o2)) rest
+                offset (x, y) (a, b) = (if b == 0 then x+a else a, b+y)
