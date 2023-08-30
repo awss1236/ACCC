@@ -9,19 +9,20 @@ data Token = Keyword String | Variable String | NumLiteral Int | Paren Char | Se
               | Minus | Comp | LogicNeg
               | Add | Mult | Div | And | Or | Equ | Nqu | Lt | Gt | Le | Ge deriving (Show, Eq)
 
-newtype Lexer a = Lexer {runLexer :: String -> Maybe ((a, Int, Int), String)}
+newtype Lexer a = Lexer {runLexer :: String -> Maybe ((a, (Int, Int)), String)}
 
 instance Functor Lexer where
   fmap f (Lexer a) = Lexer $ \s -> do
-                          ((x, p, l), input') <- a s
-                          Just ((f x, p, l), input')
+                          ((x, (p, l)), input') <- a s
+                          Just ((f x, (p, l)), input')
 
+offset (x, y) (a, b) = (if b == 0 then x+a else a, b+y)
 instance Applicative Lexer where
-  pure a = Lexer $ \s -> Just ((a, 0, 0), s)
+  pure a = Lexer $ \s -> Just ((a, (0, 0)), s)
   (<*>) (Lexer f) (Lexer a) = Lexer $ \s -> do
-                                    ((jf, p1, l1), in1) <- f s
-                                    ((ja, p2, l2), in2) <- a in1
-                                    Just ((jf ja, if l2 == 0 then p1+p2 else p2, l1+l2), in2)
+                                    ((jf, (p1, l1)), in1) <- f s
+                                    ((ja, (p2, l2)), in2) <- a in1
+                                    Just ((jf ja, offset (p1, l1) (p2, l2)), in2)
 
 instance Alternative Lexer where
   empty = Lexer $ const Nothing
@@ -35,7 +36,7 @@ ws :: Lexer ()
 ws = void $ spanL isSpace
 
 peekCharL :: (Char -> Bool) -> Lexer Char
-peekCharL f = Lexer $ \s -> if (not $ null s) && f (head s) then Just $ bimap (\(c, _, _) -> (c, 0, 0)) (\_ -> s) (fromJust $ runLexer (charL $ head s) s) else Nothing
+peekCharL f = Lexer $ \s -> if (not $ null s) && f (head s) then Just $ bimap (\(c, _) -> (c, (0, 0))) (\_ -> s) (fromJust $ runLexer (charL $ head s) s) else Nothing
 
 predCharL :: (Char -> Bool) -> Lexer Char
 predCharL f = Lexer $ \s -> if (not $ null s) && f (head s) then runLexer (charL $ head s) s else Nothing
@@ -44,10 +45,10 @@ charL :: Char -> Lexer Char
 charL c = Lexer f
   where
     f [] = Nothing
-    f (x:xs) = if x == c then Just (if c == '\n' then (c, 0, 1) else (c, 1, 0), xs) else Nothing
+    f (x:xs) = if x == c then Just (if c == '\n' then (c, (0, 1)) else (c, (1, 0)), xs) else Nothing
 
 eofL :: Lexer ()
-eofL = Lexer $ \s -> if null s then Just (((), 0, 0), s) else Nothing
+eofL = Lexer $ \s -> if null s then Just (((), (0, 0)), s) else Nothing
 
 stringL :: String -> Lexer String
 stringL = traverse charL
@@ -94,10 +95,9 @@ lexC "" = Just []
 lexC s  = let msws = runLexer ws s in if isNothing msws then
               sequenceA $ f (0, 0) s
           else
-            let ((_, sx, sy), s') = fromJust msws in
+            let ((_, (sx, sy)), s') = fromJust msws in
               sequenceA $ f (sx, sy) s'
               where
                 f :: (Int, Int) -> String -> [Maybe (Token, Int, Int)]
                 f _ "" = []
-                f (x, y) s  = let r = runLexer tokenL s in if isNothing r then [Nothing] else let ((t, o1, o2), rest) = fromJust r in Just (t, x, y) : f (offset (x, y) (o1, o2)) rest
-                offset (x, y) (a, b) = (if b == 0 then x+a else a, b+y)
+                f (x, y) s  = let r = runLexer tokenL s in if isNothing r then [Nothing] else let ((t, (o1, o2)), rest) = fromJust r in Just (t, x, y) : f (offset (x, y) (o1, o2)) rest

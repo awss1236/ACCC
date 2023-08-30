@@ -12,33 +12,30 @@ data Statement    = Return Exp deriving (Show)
 data FunctionDecl = FunctionDecl (String, Statement) deriving (Show)
 data Program      = Program FunctionDecl deriving (Show)
 
-newtype Parser a = Parser {runParser :: [Token] -> Maybe (a, [Token])}
+newtype Parser a = Parser {runParser :: [(Token, Int, Int)] -> Maybe ((a, (Int, Int)), [(Token, Int, Int)])}
 
 instance Functor Parser where
   fmap f (Parser a) = Parser $ \s -> do
-                          (x, input') <- a s
-                          Just (f x, input')
+                          ((x, p), input') <- a s
+                          Just ((f x, p), input')
 
 instance Applicative Parser where
-  pure a = Parser $ \s -> Just (a, s)
+  pure a = Parser $ \t -> Just ((a, (0, 0)), t)
   (<*>) (Parser f) (Parser a) = Parser $ \s -> do
-                                    (jf, in1) <- f s
-                                    (ja, in2) <- a in1
-                                    Just (jf ja, in2)
+                                    ((jf, p1), in1) <- f s
+                                    ((ja, _), in2) <- a in1
+                                    Just ((jf ja, p1), in2)
 
 instance Alternative Parser where
   empty = Parser $ const Nothing
   (Parser a) <|> (Parser b) = Parser $ \s -> a s <|> b s
 
 tuParse :: Parser a -> Parser b -> Parser (a, b)
-tuParse (Parser a) (Parser b) = Parser $ \s -> do
-                                         (ar, as) <- a s
-                                         (br, bs) <- b as
-                                         Just ((ar, br), bs)
+tuParse p1 p2 = (,) <$> p1 <*> p2
 
 parseToken :: Token -> Parser Token
 parseToken t = Parser $ \case
-                       (t1:rest) -> if t == t1 then Just (t, rest) else Nothing
+                       ((t1, x, y):rest) -> if t == t1 then Just ((t, (x, y)), rest) else Nothing
                        _         -> Nothing
 
 parseToks :: [Token] -> Parser Token
@@ -51,7 +48,7 @@ parseOr (t:rest) = parseToken t <|> parseOr rest
 
 parseSemicolon :: Parser ()
 parseSemicolon = Parser $ \case
-                          (Semicolon : rest) -> Just ((), rest)
+                          ((Semicolon, x, y) : rest) -> Just (((), (x, y)), rest)
                           _                  -> Nothing
 
 parseFactor :: Parser Exp
@@ -61,7 +58,7 @@ parseFactor = parseInt <|>
                 ((\f -> UnaryAct (ULogicNeg, f)) <$> (parseToken LogicNeg *> parseFactor)) <|>
                 (parseToken (Paren '(') *> parseExp <* parseToken (Paren ')'))
       where parseInt = Constant <$> Parser (\case
-                                            (NumLiteral i : rest) -> Just (i, rest)
+                                            ((NumLiteral i, x, y) : rest) -> Just ((i, (x, y)), rest)
                                             _                     -> Nothing)
 
 parseTerm  :: Parser Exp
@@ -77,12 +74,12 @@ parseExp = let p = parseAndExp in p <**> (ggP p [Or]) <|> p
 
 ggP :: Parser Exp -> [Token] -> Parser(Exp -> Exp)
 ggP l ts = Parser (\xs -> do
-                      (op', r1) <- runParser (parseOr ts) xs
+                      ((op', (a, b)), r1) <- runParser (parseOr ts) xs
                       let op = tToB op'
-                      (t, r2) <- runParser l r1
+                      ((t, _), r2) <- runParser l r1
                       let goofyRes = runParser (ggP l ts) r2
-                      if isNothing goofyRes then Just (\x -> BinAct (op, x, t), r2)
-                      else let (f, grr) = fromJust goofyRes in Just (\x -> f $ BinAct (op, x, t), grr))
+                      if isNothing goofyRes then Just ((\x -> BinAct (op, x, t), (a, b)), r2)
+                      else let ((f, _), grr) = fromJust goofyRes in Just ((\x -> f $ BinAct (op, x, t), (a, b)), grr))
       where tToB = \case
                     Add -> BAdd
                     Mult -> BMult
@@ -97,15 +94,12 @@ ggP l ts = Parser (\xs -> do
                     Ge -> BGe
 
 parseStatement :: Parser Statement
-parseStatement = p1 *> (Return <$> parseExp) <* parseSemicolon
-           where p1 = Parser $ \case
-                               (Keyword "return" : rest) -> Just ((), rest)
-                               _                         -> Nothing
+parseStatement = (parseToken (Keyword "return")) *> (Return <$> parseExp) <* parseSemicolon
 
 parseFunctionDecl :: Parser FunctionDecl
 parseFunctionDecl = FunctionDecl <$> parse1 `tuParse` parse2
               where parse1 = let p1 = Parser $ \case
-                                               (Variable ident : rest) -> Just (ident, rest)
+                                               ((Variable ident, p, q) : rest) -> Just ((ident, (p, q)), rest)
                                                _                       -> Nothing
                                       in parseToken (Keyword "int") *> p1 <* parseToks [Paren '(', Paren ')', Paren '{']
                     parse2 = parseStatement <* parseToken (Paren '}')
@@ -113,5 +107,5 @@ parseFunctionDecl = FunctionDecl <$> parse1 `tuParse` parse2
 parseProgram :: Parser Program
 parseProgram = Program <$> parseFunctionDecl
 
-parse :: [Token] -> Maybe Program
+parse :: [(Token, Int, Int)] -> Maybe (Program, (Int, Int))
 parse tk = fst <$> runParser parseProgram tk
