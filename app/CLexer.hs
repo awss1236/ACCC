@@ -90,7 +90,7 @@ tokenL = let nttws = keywordL <|> variableL <|> numberL <|> parenL <|> semicolon
                  <|> addL <|> multL <|> divL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> leL <|> geL
             in (ws *> nttws <* ws) <|> (nttws <* ws) <|> nttws
 
-lexC :: String -> Maybe [(Token, Int, Int)]
+lexC :: String -> Maybe [(Token, (Int, Int))]
 lexC "" = Just []
 lexC s  = let msws = runLexer ws s in if isNothing msws then
               sequenceA $ f (0, 0) s
@@ -98,6 +98,6 @@ lexC s  = let msws = runLexer ws s in if isNothing msws then
             let ((_, (sx, sy)), s') = fromJust msws in
               sequenceA $ f (sx, sy) s'
               where
-                f :: (Int, Int) -> String -> [Maybe (Token, Int, Int)]
+                f :: (Int, Int) -> String -> [Maybe (Token, (Int, Int))]
                 f _ "" = []
-                f (x, y) s  = let r = runLexer tokenL s in if isNothing r then [Nothing] else let ((t, (o1, o2)), rest) = fromJust r in Just (t, x, y) : f (offset (x, y) (o1, o2)) rest
+                f (x, y) s  = let r = runLexer tokenL s in if isNothing r then [Nothing] else let ((t, (o1, o2)), rest) = fromJust r in Just (t, (x, y)) : f (offset (x, y) (o1, o2)) rest

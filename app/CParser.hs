@@ -6,25 +6,25 @@ import Data.Maybe
 
 data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
 data BinaryOper  = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
-data Exp          = Constant Int | UnaryAct (UnaryOper, Exp) | BinAct (BinaryOper, Exp, Exp) deriving (Show)
+data Exp          = Constant (Int, (Int, Int)) | UnaryAct ((UnaryOper, Exp), (Int, Int)) | BinAct ((BinaryOper, Exp, Exp), (Int, Int)) deriving (Show)
 
-data Statement    = Return Exp deriving (Show)
-data FunctionDecl = FunctionDecl (String, Statement) deriving (Show)
-data Program      = Program FunctionDecl deriving (Show)
+data Statement    = Return (Exp, (Int, Int)) deriving (Show)
+data FunctionDecl = FunctionDecl ((String, Statement), (Int, Int)) deriving (Show)
+data Program      = Program (FunctionDecl, (Int, Int)) deriving (Show)
 
-newtype Parser a = Parser {runParser :: [(Token, Int, Int)] -> Maybe ((a, (Int, Int)), [(Token, Int, Int)])}
+newtype Parser a = Parser {runParser :: [(Token, (Int, Int))] -> Maybe (a, [(Token, (Int, Int))])}
 
 instance Functor Parser where
   fmap f (Parser a) = Parser $ \s -> do
-                          ((x, p), input') <- a s
-                          Just ((f x, p), input')
+                          (x, input') <- a s
+                          Just (f x, input')
 
 instance Applicative Parser where
-  pure a = Parser $ \t -> Just ((a, (0, 0)), t)
+  pure a = Parser $ \t -> Just (a, t)
   (<*>) (Parser f) (Parser a) = Parser $ \s -> do
-                                    ((jf, p1), in1) <- f s
-                                    ((ja, _), in2) <- a in1
-                                    Just ((jf ja, p1), in2)
+                                    (jf, in1) <- f s
+                                    (ja, in2) <- a in1
+                                    Just (jf ja, in2)
 
 instance Alternative Parser where
   empty = Parser $ const Nothing
@@ -33,32 +33,32 @@ instance Alternative Parser where
 tuParse :: Parser a -> Parser b -> Parser (a, b)
 tuParse p1 p2 = (,) <$> p1 <*> p2
 
-parseToken :: Token -> Parser Token
+parseToken :: Token -> Parser (Token, (Int, Int))
 parseToken t = Parser $ \case
-                       ((t1, x, y):rest) -> if t == t1 then Just ((t, (x, y)), rest) else Nothing
+                       ((t1, (x, y)):rest) -> if t == t1 then Just ((t, (x, y)), rest) else Nothing
                        _         -> Nothing
 
-parseToks :: [Token] -> Parser Token
+parseToks :: [Token] -> Parser (Token, (Int, Int))
 parseToks [t] = parseToken t
 parseToks (t:rest) = parseToken t <* parseToks rest
 
-parseOr :: [Token] -> Parser Token
+parseOr :: [Token] -> Parser (Token, (Int, Int))
 parseOr [t] = parseToken t
 parseOr (t:rest) = parseToken t <|> parseOr rest
 
-parseSemicolon :: Parser ()
+parseSemicolon :: Parser ((), (Int, Int))
 parseSemicolon = Parser $ \case
-                          ((Semicolon, x, y) : rest) -> Just (((), (x, y)), rest)
+                          ((Semicolon, (x, y)) : rest) -> Just (((), (x, y)), rest)
                           _                  -> Nothing
 
 parseFactor :: Parser Exp
 parseFactor = parseInt <|>
-                ((\f -> UnaryAct (UMinus   , f)) <$> (parseToken Minus    *> parseFactor)) <|>
-                ((\f -> UnaryAct (UComp    , f)) <$> (parseToken Comp     *> parseFactor)) <|>
-                ((\f -> UnaryAct (ULogicNeg, f)) <$> (parseToken LogicNeg *> parseFactor)) <|>
+                (((\f (_, p)-> UnaryAct ((UMinus   , f), p)) <$> (parseToken Minus    *> parseFactor)) <*> parseToken Minus) <|>
+                (((\f (_, p)-> UnaryAct ((UComp    , f), p)) <$> (parseToken Comp     *> parseFactor)) <*> parseToken Comp) <|>
+                (((\f (_, p)-> UnaryAct ((ULogicNeg, f), p)) <$> (parseToken LogicNeg *> parseFactor)) <*> parseToken LogicNeg) <|>
                 (parseToken (Paren '(') *> parseExp <* parseToken (Paren ')'))
       where parseInt = Constant <$> Parser (\case
-                                            ((NumLiteral i, x, y) : rest) -> Just ((i, (x, y)), rest)
+                                            ((NumLiteral i, (x, y)) : rest) -> Just ((i, (x, y)), rest)
                                             _                     -> Nothing)
 
 parseTerm  :: Parser Exp
@@ -76,10 +76,10 @@ ggP :: Parser Exp -> [Token] -> Parser(Exp -> Exp)
 ggP l ts = Parser (\xs -> do
                       ((op', (a, b)), r1) <- runParser (parseOr ts) xs
                       let op = tToB op'
-                      ((t, _), r2) <- runParser l r1
+                      (t, r2) <- runParser l r1
                       let goofyRes = runParser (ggP l ts) r2
-                      if isNothing goofyRes then Just ((\x -> BinAct (op, x, t), (a, b)), r2)
-                      else let ((f, _), grr) = fromJust goofyRes in Just ((\x -> f $ BinAct (op, x, t), (a, b)), grr))
+                      if isNothing goofyRes then Just ((\x -> BinAct((op, x, t), (a, b))), r2)
+                      else let (f, grr) = fromJust goofyRes in Just ((\x -> f $ BinAct((op, x, t), (a, b))), grr))
       where tToB = \case
                     Add -> BAdd
                     Mult -> BMult
@@ -94,18 +94,21 @@ ggP l ts = Parser (\xs -> do
                     Ge -> BGe
 
 parseStatement :: Parser Statement
-parseStatement = (parseToken (Keyword "return")) *> (Return <$> parseExp) <* parseSemicolon
+parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")) <*> parseExp <* parseSemicolon
+p1 = Parser $ \case
+                                               ((Variable ident, (p, q)) : rest) -> Just ((ident, (p, q)), rest)
+                                               _                       -> Nothing
 
 parseFunctionDecl :: Parser FunctionDecl
-parseFunctionDecl = FunctionDecl <$> parse1 `tuParse` parse2
+parseFunctionDecl = (\((a, p), b) -> FunctionDecl ((a, b), p)) <$> parse1 `tuParse` parse2
               where parse1 = let p1 = Parser $ \case
-                                               ((Variable ident, p, q) : rest) -> Just ((ident, (p, q)), rest)
+                                               ((Variable ident, (p, q)) : rest) -> Just ((ident, (p, q)), rest)
                                                _                       -> Nothing
                                       in parseToken (Keyword "int") *> p1 <* parseToks [Paren '(', Paren ')', Paren '{']
                     parse2 = parseStatement <* parseToken (Paren '}')
 
 parseProgram :: Parser Program
-parseProgram = Program <$> parseFunctionDecl
+parseProgram = ((flip $ curry Program) (0, 0)) <$> parseFunctionDecl
 
-parse :: [(Token, Int, Int)] -> Maybe (Program, (Int, Int))
+parse :: [(Token, (Int, Int))] -> Maybe Program
 parse tk = fst <$> runParser parseProgram tk
