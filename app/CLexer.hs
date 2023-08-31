@@ -7,7 +7,7 @@ import Control.Applicative
 
 data Token = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon
               | Minus | Comp | LogicNeg
-              | Add | Mult | Div | And | Or | Equ | Nqu | Lt | Gt | Le | Ge deriving (Show, Eq)
+              | Add | Mult | Div | And | Or | Equ | Nqu | Lt | Gt | Le | Ge | Assign deriving (Show, Eq)
 
 newtype Lexer a = Lexer {runLexer :: String -> Maybe ((a, (Int, Int)), String)}
 
@@ -70,6 +70,7 @@ equL       = Equ      <$ charL '=' <* charL '='
 nquL       = Nqu      <$ charL '!' <* charL '='
 leL        = Le       <$ charL '<' <* charL '='
 geL        = Ge       <$ charL '>' <* charL '='
+assignL    = Assign   <$ charL '='
 
 keywords = ["auto","break","case","char","const","continue","default","do","double","else","enum","extern","float","for","goto","if","int","long","register","return","short","signed","sizeof","static","struct","switch","typedef","union","unsigned","void","volatile","while"]
 keywordL :: Lexer Token
@@ -87,7 +88,7 @@ parenL = Paren <$> foldr ((<|>) . charL) empty "(){}[]"
 tokenL :: Lexer Token
 tokenL = let nttws = keywordL <|> variableL <|> numberL <|> parenL <|> semicolonL
                  <|> minusL <|> compL <|> logicNegL
-                 <|> addL <|> multL <|> divL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> leL <|> geL
+                 <|> addL <|> multL <|> divL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> leL <|> geL <|> assignL
             in (ws *> nttws <* ws) <|> (nttws <* ws) <|> nttws
 
 lexC :: String -> Maybe [(Token, (Int, Int))]
