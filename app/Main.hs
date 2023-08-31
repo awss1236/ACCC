@@ -17,6 +17,7 @@ main = do
   args <- getArgs
   if null args then do
     putStrLn "Expected source file. Instead got nothing."
+    putStrLn "Usage: sccmp file.c [Linux]"
     exitWith (ExitFailure 2)
   else do
     let sf = head args
@@ -38,9 +39,10 @@ main = do
         putStrLn "\nAST:"
         putStrLn $ pPrintProg pts
         putStrLn "\nASM:"
-        putStrLn $ genProgAsm pts
+        putStrLn $ genProgAsm True pts
 
         let asf = sf -<.> "s"
-        writeFile asf (genProgAsm pts)
+        if null $ tail args then writeFile asf (genProgAsm False pts)
+        else writeFile asf (genProgAsm True pts)
         runCommand $ "gcc -m32 " ++ asf ++ " -o " ++ (takeDirectory sf </> "a.out")
         exitSuccess
