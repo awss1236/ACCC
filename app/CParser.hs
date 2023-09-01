@@ -3,12 +3,13 @@ module CParser where
 import CLexer
 import Control.Applicative
 import Data.Maybe
+import Data.Bifunctor
 
 data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
 data BinaryOper  = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
-data Exp          = Var (Loc String) | Assign (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) deriving (Show)
+data Exp          = Var (Loc String) | Set (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) deriving (Show)
 
-data Statement    = Expr (Loc Exp) | Declare (Loc (String, Maybe Exp)) | Return (Loc Exp) deriving (Show)
+data Statement    = Expr Exp | Declare (Loc (String, Maybe Exp)) | Return (Loc Exp) deriving (Show)
 data FunctionDecl = FunctionDecl (Loc (String, [Statement])) deriving (Show)
 data Program      = Program (Loc FunctionDecl) deriving (Show)
 
@@ -45,6 +46,10 @@ parseToks (t:rest) = parseToken t <* parseToks rest
 parseOr :: [Token] -> Parser (Loc Token)
 parseOr [t] = parseToken t
 parseOr (t:rest) = parseToken t <|> parseOr rest
+
+parseVar = Parser $ \case
+                     ((Variable n, p) : r) -> Just ((n, p), r)
+                     _                     -> Nothing
 
 parseSemicolon :: Parser (Loc ())
 parseSemicolon = Parser $ \case
@@ -95,17 +100,16 @@ ggP l ts = Parser (\xs -> do
 
 parseStatement :: Parser Statement
 parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")) <*> parseExp <* parseSemicolon
-p1 = Parser $ \case
-                                               ((Variable ident, (p, q)) : rest) -> Just ((ident, (p, q)), rest)
-                                               _                       -> Nothing
+                <|> Expr <$> parseExp
+                <|> parseToken (Keyword "int")
+                    *> (((\(i, p) e -> Declare ((i, e), p)) <$> parseVar)
+                    <*> ((parseToken Assign *> (Just <$> parseExp)) <|> pure Nothing))
+                    <* parseSemicolon
 
 parseFunctionDecl :: Parser FunctionDecl
 parseFunctionDecl = (\(s, p) ss -> FunctionDecl ((s, ss), p)) <$> parseName <*> parseStats <* parseToken (Paren '}')
                   where
-                    pp = Parser $ \case
-                                   ((Variable n, p) : r) -> Just ((n, p), r)
-                                   _                     -> Nothing
-                    parseName = parseToken (Keyword "int") *> pp <* parseToks (map Paren "(){")
+                    parseName = parseToken (Keyword "int") *> parseVar <* parseToks (map Paren "(){")
                     parseStats = Parser $ \ts -> do
                                                   (s, r) <- runParser parseStatement ts
                                                   let test = runParser parseStats r
