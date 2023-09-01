@@ -62,12 +62,12 @@ parseFactor = parseInt <|>
                                             _                     -> Nothing)
 
 parseTerm  :: Parser Exp
-parseTerm = let p = parseFactor in p <**> (ggP p [Mult, Div]) <|> p
+parseTerm = let p = parseFactor in p <**> ggP p [Mult, Div] <|> p
 
-parseAddExp = let p = parseTerm   in p <**> (ggP p [Add, Minus]) <|> p
-parseRelExp = let p = parseAddExp in p <**> (ggP p [Le, Ge, Lt, Gt]) <|> p
-parseEquExp = let p = parseRelExp in p <**> (ggP p [Equ, Nqu]) <|> p
-parseAndExp = let p = parseEquExp in p <**> (ggP p [And]) <|> p
+parseAddExp = let p = parseTerm   in p <**> ggP p [Add, Minus] <|> p
+parseRelExp = let p = parseAddExp in p <**> ggP p [Le, Ge, Lt, Gt] <|> p
+parseEquExp = let p = parseRelExp in p <**> ggP p [Equ, Nqu] <|> p
+parseAndExp = let p = parseEquExp in p <**> ggP p [And] <|> p
 
 parseExp :: Parser Exp
 parseExp = let p = parseAndExp in p <**> ggP p [Or] <|> p
