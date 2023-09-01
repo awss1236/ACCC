@@ -31,16 +31,16 @@ instance Alternative Lexer where
 
 
 spanL :: (Char -> Bool) -> Lexer String
-spanL f = Lexer $ \s -> let x = fst $ span f s in if null x then Nothing else runLexer (stringL x) s
+spanL f = Lexer $ \s -> let x = takeWhile f s in if null x then Nothing else runLexer (stringL x) s
 
 ws :: Lexer ()
 ws = void $ spanL isSpace
 
 peekCharL :: (Char -> Bool) -> Lexer Char
-peekCharL f = Lexer $ \s -> if (not $ null s) && f (head s) then Just $ bimap (\(c, _) -> (c, (0, 0))) (\_ -> s) (fromJust $ runLexer (charL $ head s) s) else Nothing
+peekCharL f = Lexer $ \s -> if not (null s) && f (head s) then Just $ bimap (\(c, _) -> (c, (0, 0))) (const s) (fromJust $ runLexer (charL $ head s) s) else Nothing
 
 predCharL :: (Char -> Bool) -> Lexer Char
-predCharL f = Lexer $ \s -> if (not $ null s) && f (head s) then runLexer (charL $ head s) s else Nothing
+predCharL f = Lexer $ \s -> if not (null s) && f (head s) then runLexer (charL $ head s) s else Nothing
 
 charL :: Char -> Lexer Char
 charL c = Lexer f

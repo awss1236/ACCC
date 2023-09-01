@@ -70,7 +70,7 @@ parseEquExp = let p = parseRelExp in p <**> (ggP p [Equ, Nqu]) <|> p
 parseAndExp = let p = parseEquExp in p <**> (ggP p [And]) <|> p
 
 parseExp :: Parser Exp
-parseExp = let p = parseAndExp in p <**> (ggP p [Or]) <|> p
+parseExp = let p = parseAndExp in p <**> ggP p [Or] <|> p
 
 ggP :: Parser Exp -> [Token] -> Parser(Exp -> Exp)
 ggP l ts = Parser (\xs -> do
@@ -78,8 +78,8 @@ ggP l ts = Parser (\xs -> do
                       let op = tToB op'
                       (t, r2) <- runParser l r1
                       let goofyRes = runParser (ggP l ts) r2
-                      if isNothing goofyRes then Just ((\x -> BinAct((op, x, t), (a, b))), r2)
-                      else let (f, grr) = fromJust goofyRes in Just ((\x -> f $ BinAct((op, x, t), (a, b))), grr))
+                      if isNothing goofyRes then Just (\x -> BinAct((op, x, t), (a, b)), r2)
+                      else let (f, grr) = fromJust goofyRes in Just (\x -> f $ BinAct((op, x, t), (a, b)), grr))
       where tToB = \case
                     Add -> BAdd
                     Mult -> BMult
@@ -106,18 +106,18 @@ parseFunctionDecl = (\(s, p) ss -> FunctionDecl ((s, ss), p)) <$> parseName <*> 
                                    ((Variable n, p) : r) -> Just ((n, p), r)
                                    _                     -> Nothing
                     parseName = parseToken (Keyword "int") *> pp <* parseToks (map Paren "(){")
-                    parseStats = (Parser $ \ts -> do
+                    parseStats = Parser $ \ts -> do
                                                   (s, r) <- runParser parseStatement ts
                                                   let test = runParser parseStats r
                                                   if isNothing test then Just ([s], r)
                                                   else
                                                     let (ss, r') = fromJust test
-                                                    in Just (s:ss, r'))
+                                                    in Just (s:ss, r')
 --                                <|> pure []
 --                                uncomment to support empty functions
 
 parseProgram :: Parser Program
-parseProgram = ((flip $ curry Program) (0, 0)) <$> parseFunctionDecl
+parseProgram = (flip $ curry Program) (0, 0) <$> parseFunctionDecl
 
 parse :: [Loc Token] -> Maybe Program
 parse tk = fst <$> runParser parseProgram tk

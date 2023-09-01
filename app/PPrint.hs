@@ -31,7 +31,7 @@ pPrintStat :: Statement -> [String]
 pPrintStat (Return (exp, _)) = ["RETURN "++pPrintExp exp]
 
 pPrintFunc :: FunctionDecl -> [String]
-pPrintFunc (FunctionDecl ((n, s), _)) = ["FUN INT "++n++":", "  params: ()", "  body:"] ++ map ("    " ++) (pPrintStat s)
+pPrintFunc (FunctionDecl ((n, s), _)) = ["FUN INT "++n++":", "  params: ()", "  body:"] ++ concatMap (map ("    "++).pPrintStat) s
 
 pPrintProg :: Program -> String
 pPrintProg (Program (f, _)) = foldl (\acc s -> acc ++ s ++ "\n") "" $ pPrintFunc f
