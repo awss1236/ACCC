@@ -81,7 +81,7 @@ variableL :: Lexer Token
 variableL = Variable <$> (liftA2 (++) (spanL (\c -> c == '_' || isAlpha c)) (spanL (\c -> c == '_' || isAlphaNum c)) <|> spanL (\c -> c == '_' || isAlpha c))
 
 numberL :: Lexer Token
-numberL = NumLiteral . read <$> spanL isDigit <* peekCharL (not . isAlpha)
+numberL = NumLiteral . read <$> spanL isDigit <* (void (peekCharL (not . isAlpha)) <|> eofL)
 
 parenL :: Lexer Token
 parenL = Paren <$> foldr ((<|>) . charL) empty "(){}[]"
