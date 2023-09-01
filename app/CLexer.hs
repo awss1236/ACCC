@@ -5,11 +5,12 @@ import Data.Bifunctor
 import Control.Monad
 import Control.Applicative
 
+type Loc a = (a, (Int, Int))
 data Token = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon
               | Minus | Comp | LogicNeg
               | Add | Mult | Div | And | Or | Equ | Nqu | Lt | Gt | Le | Ge | Assign deriving (Show, Eq)
 
-newtype Lexer a = Lexer {runLexer :: String -> Maybe ((a, (Int, Int)), String)}
+newtype Lexer a = Lexer {runLexer :: String -> Maybe (Loc a, String)}
 
 instance Functor Lexer where
   fmap f (Lexer a) = Lexer $ \s -> do
@@ -91,14 +92,15 @@ tokenL = let nttws = keywordL <|> variableL <|> numberL <|> parenL <|> semicolon
                  <|> addL <|> multL <|> divL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> leL <|> geL <|> assignL
             in (ws *> nttws <* ws) <|> (nttws <* ws) <|> nttws
 
-lexC :: String -> Maybe [(Token, (Int, Int))]
+lexC :: String -> Maybe [Loc Token]
 lexC "" = Just []
-lexC s  = let msws = runLexer ws s in if isNothing msws then
+lexC s  = let msws = runLexer ws s in
+          if isNothing msws then
               sequenceA $ f (0, 0) s
           else
             let ((_, (sx, sy)), s') = fromJust msws in
               sequenceA $ f (sx, sy) s'
               where
-                f :: (Int, Int) -> String -> [Maybe (Token, (Int, Int))]
+                f :: (Int, Int) -> String -> [Maybe (Loc Token)]
                 f _ "" = []
                 f (x, y) s  = let r = runLexer tokenL s in if isNothing r then [Nothing] else let ((t, (o1, o2)), rest) = fromJust r in Just (t, (x, y)) : f (offset (x, y) (o1, o2)) rest

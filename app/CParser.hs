@@ -6,13 +6,13 @@ import Data.Maybe
 
 data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
 data BinaryOper  = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
-data Exp          = Constant (Int, (Int, Int)) | UnaryAct ((UnaryOper, Exp), (Int, Int)) | BinAct ((BinaryOper, Exp, Exp), (Int, Int)) deriving (Show)
+data Exp          = Var (Loc String) | Assign (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) deriving (Show)
 
-data Statement    = Return (Exp, (Int, Int)) deriving (Show)
-data FunctionDecl = FunctionDecl ((String, Statement), (Int, Int)) deriving (Show)
-data Program      = Program (FunctionDecl, (Int, Int)) deriving (Show)
+data Statement    = Expr (Loc Exp) | Declare (Loc (String, Maybe Exp)) | Return (Loc Exp) deriving (Show)
+data FunctionDecl = FunctionDecl (Loc (String, [Statement])) deriving (Show)
+data Program      = Program (Loc FunctionDecl) deriving (Show)
 
-newtype Parser a = Parser {runParser :: [(Token, (Int, Int))] -> Maybe (a, [(Token, (Int, Int))])}
+newtype Parser a = Parser {runParser :: [Loc Token] -> Maybe (a, [Loc Token])}
 
 instance Functor Parser where
   fmap f (Parser a) = Parser $ \s -> do
@@ -33,20 +33,20 @@ instance Alternative Parser where
 tuParse :: Parser a -> Parser b -> Parser (a, b)
 tuParse p1 p2 = (,) <$> p1 <*> p2
 
-parseToken :: Token -> Parser (Token, (Int, Int))
+parseToken :: Token -> Parser (Loc Token)
 parseToken t = Parser $ \case
                        ((t1, (x, y)):rest) -> if t == t1 then Just ((t, (x, y)), rest) else Nothing
                        _         -> Nothing
 
-parseToks :: [Token] -> Parser (Token, (Int, Int))
+parseToks :: [Token] -> Parser (Loc Token)
 parseToks [t] = parseToken t
 parseToks (t:rest) = parseToken t <* parseToks rest
 
-parseOr :: [Token] -> Parser (Token, (Int, Int))
+parseOr :: [Token] -> Parser (Loc Token)
 parseOr [t] = parseToken t
 parseOr (t:rest) = parseToken t <|> parseOr rest
 
-parseSemicolon :: Parser ((), (Int, Int))
+parseSemicolon :: Parser (Loc ())
 parseSemicolon = Parser $ \case
                           ((Semicolon, (x, y)) : rest) -> Just (((), (x, y)), rest)
                           _                  -> Nothing
@@ -100,15 +100,24 @@ p1 = Parser $ \case
                                                _                       -> Nothing
 
 parseFunctionDecl :: Parser FunctionDecl
-parseFunctionDecl = (\((a, p), b) -> FunctionDecl ((a, b), p)) <$> parse1 `tuParse` parse2
-              where parse1 = let p1 = Parser $ \case
-                                               ((Variable ident, (p, q)) : rest) -> Just ((ident, (p, q)), rest)
-                                               _                       -> Nothing
-                                      in parseToken (Keyword "int") *> p1 <* parseToks [Paren '(', Paren ')', Paren '{']
-                    parse2 = parseStatement <* parseToken (Paren '}')
+parseFunctionDecl = (\(s, p) ss -> FunctionDecl ((s, ss), p)) <$> parseName <*> parseStats <* parseToken (Paren '}')
+                  where
+                    pp = Parser $ \case
+                                   ((Variable n, p) : r) -> Just ((n, p), r)
+                                   _                     -> Nothing
+                    parseName = parseToken (Keyword "int") *> pp <* parseToks (map Paren "(){")
+                    parseStats = (Parser $ \ts -> do
+                                                  (s, r) <- runParser parseStatement ts
+                                                  let test = runParser parseStats r
+                                                  if isNothing test then Just ([s], r)
+                                                  else
+                                                    let (ss, r') = fromJust test
+                                                    in Just (s:ss, r'))
+--                                <|> pure []
+--                                uncomment to support empty functions
 
 parseProgram :: Parser Program
 parseProgram = ((flip $ curry Program) (0, 0)) <$> parseFunctionDecl
 
-parse :: [(Token, (Int, Int))] -> Maybe Program
+parse :: [Loc Token] -> Maybe Program
 parse tk = fst <$> runParser parseProgram tk
