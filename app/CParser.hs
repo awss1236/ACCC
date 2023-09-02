@@ -61,7 +61,8 @@ parseFactor = parseInt <|>
                 (((\f (_, p)-> UnaryAct ((UMinus   , f), p)) <$> (parseToken Minus    *> parseFactor)) <*> parseToken Minus) <|>
                 (((\f (_, p)-> UnaryAct ((UComp    , f), p)) <$> (parseToken Comp     *> parseFactor)) <*> parseToken Comp) <|>
                 (((\f (_, p)-> UnaryAct ((ULogicNeg, f), p)) <$> (parseToken LogicNeg *> parseFactor)) <*> parseToken LogicNeg) <|>
-                (parseToken (Paren '(') *> parseExp <* parseToken (Paren ')'))
+                (parseToken (Paren '(') *> parseExp <* parseToken (Paren ')')) <|>
+                (Var <$> parseVar)
       where parseInt = Constant <$> Parser (\case
                                             ((NumLiteral i, (x, y)) : rest) -> Just ((i, (x, y)), rest)
                                             _                     -> Nothing)
@@ -73,9 +74,10 @@ parseAddExp = let p = parseTerm   in p <**> ggP p [Add, Minus] <|> p
 parseRelExp = let p = parseAddExp in p <**> ggP p [Le, Ge, Lt, Gt] <|> p
 parseEquExp = let p = parseRelExp in p <**> ggP p [Equ, Nqu] <|> p
 parseAndExp = let p = parseEquExp in p <**> ggP p [And] <|> p
+parseOrExp  = let p = parseAndExp in p <**> ggP p [Or] <|> p
 
 parseExp :: Parser Exp
-parseExp = let p = parseAndExp in p <**> ggP p [Or] <|> p
+parseExp = ((\(i, p) e -> Set((i,e), p)) <$>parseVar <* parseToken Assign <*> parseExp) <|> parseOrExp
 
 ggP :: Parser Exp -> [Token] -> Parser(Exp -> Exp)
 ggP l ts = Parser (\xs -> do
