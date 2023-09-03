@@ -6,7 +6,7 @@ import Data.Maybe
 import Data.Bifunctor
 
 data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
-data BinaryOper  = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
+data BinaryOper   = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
 data Exp          = Var (Loc String) | Set (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) deriving (Show)
 
 data Statement    = Expr Exp | Declare (Loc (String, Maybe Exp)) | Return (Loc Exp) deriving (Show)
