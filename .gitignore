@@ -5,3 +5,4 @@ write_a_c_compiler-master
 !*.hs
 !*.bat
 !*.sh
+!*.cabal
