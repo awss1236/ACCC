@@ -88,8 +88,8 @@ parenL = Paren <$> foldr ((<|>) . charL) empty "(){}[]"
 
 tokenL :: Lexer Token
 tokenL = let nttws = keywordL <|> variableL <|> numberL <|> parenL <|> semicolonL
+                 <|> addL <|> multL <|> divL <|> leL <|> geL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> assignL
                  <|> minusL <|> compL <|> logicNegL
-                 <|> addL <|> multL <|> divL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> leL <|> geL <|> assignL
             in (ws *> nttws <* ws) <|> (nttws <* ws) <|> nttws
 
 lexC :: String -> Maybe [Loc Token]
