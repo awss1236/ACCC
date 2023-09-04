@@ -23,7 +23,6 @@ genExpAsm m (BinAct((BGt,   e1, e2), _)) = genExpAsm m e1 ++ "  push   %eax\n" +
 genExpAsm m (BinAct((BLe,   e1, e2), _)) = genExpAsm m e1 ++ "  push   %eax\n" ++ genExpAsm m e2 ++ "  pop    %ecx\n  cmpl   %eax, %ecx\n  movl   $0, %eax\n  setle  %al\n"
 genExpAsm m (BinAct((BGe,   e1, e2), _)) = genExpAsm m e1 ++ "  push   %eax\n" ++ genExpAsm m e2 ++ "  pop    %ecx\n  cmpl   %eax, %ecx\n  movl   $0, %eax\n  setge  %al\n"
 genExpAsm m (Set((n, e), _)) = genExpAsm m e ++ "  movl   %eax, " ++ show (snd m M.! n) ++ "(%ebp)\n"
-genExpAsm m (Var(n, _)) = "  movl   " ++ show (snd m M.! n) ++ ", %eax\n"
 
 
 genStatAsm :: StackState -> Statement -> (String, StackState)
