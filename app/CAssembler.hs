@@ -33,10 +33,10 @@ genStatAsm (i, m) (Declare ((n, Nothing), _)) = (if M.member n m then "Variable 
 genStatAsm (i, m) (Declare ((n, Just e ), _)) = (if M.member n m then "Variable redeclaration is a fucked up thing bud" else genExpAsm (i, m) e ++ "  pushl  %eax\n", (i-4, M.insert n i m))
 
 genFuncAsm :: Bool -> FunctionDecl -> String
-genFuncAsm False (FunctionDecl ((n, s), _)) = " .globl _"++n++"\n_"++n++":\n"++ (fst (foldr (\stt (a, stk)-> let (na, nstk) = genStatAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s)) ++ mReturnZero (last s)
+genFuncAsm False (FunctionDecl ((n, s), _)) = " .globl _"++n++"\n_"++n++":\n"++ fst (foldr (\stt (a, stk)-> let (na, nstk) = genStatAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s) ++ mReturnZero (last s)
       where mReturnZero (Return _) = ""
             mReturnZero _ = "  movl   $0, %eax\n  ret\n"
-genFuncAsm True  (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n"++ (fst (foldr (\stt (a, stk)-> let (na, nstk) = genStatAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s)) ++ mReturnZero (last s)
+genFuncAsm True  (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n"++ fst (foldr (\stt (a, stk)-> let (na, nstk) = genStatAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s) ++ mReturnZero (last s)
       where mReturnZero (Return _) = ""
             mReturnZero _ = "  movl   $0, %eax\n  ret\n"
 
