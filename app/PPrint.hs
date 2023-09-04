@@ -7,27 +7,31 @@ pPrintUnary UMinus    = "-"
 pPrintUnary UComp     = "~"
 pPrintUnary ULogicNeg = "!"
 
-pPrintFactor :: Exp -> String
-pPrintFactor (Constant (i, _)) = show i
-pPrintFactor (UnaryAct ((u, e), _)) = pPrintUnary u ++ pPrintExp e
-
-pPrintB1 :: BinaryOper -> String
-pPrintB1 BMult = "*"
-pPrintB1 BDiv  = "/"
-
-pPrintTerm :: Exp -> String
-pPrintTerm (BinAct ((o, e1, e2), _)) = "(" ++ pPrintExp e1 ++ pPrintB1 o ++ pPrintExp e2 ++ ")"
-pPrintTerm f = pPrintFactor f
-
-pPrintB2 :: BinaryOper -> String
-pPrintB2 BAdd = "+"
-pPrintB2 BSub = "-"
+pPrintBinary :: BinaryOper -> String
+pPrintBinary BMult = "*"
+pPrintBinary BDiv  = "/"
+pPrintBinary BAdd  = "+"
+pPrintBinary BSub  = "-"
+pPrintBinary BAnd  = "&&"
+pPrintBinary BOr   = "||"
+pPrintBinary BEqu  = "=="
+pPrintBinary BNqu  = "!="
+pPrintBinary BLt   = "<"
+pPrintBinary BGt   = ">"
+pPrintBinary BLe   = "<="
+pPrintBinary BGe   = ">="
 
 pPrintExp :: Exp -> String
-pPrintExp (BinAct ((o, e1, e2), _)) = "(" ++ pPrintExp e1 ++ pPrintB2 o ++ pPrintExp e2 ++ ")"
-pPrintExp t                   = pPrintTerm t
+pPrintExp (Var (v, _)) = "$"++v
+pPrintExp (Set ((v, e), _)) = "($"++v ++ " = " ++ pPrintExp e ++ ")"
+pPrintExp (Constant (i, _)) = show i
+pPrintExp (UnaryAct ((o, e), _)) = pPrintUnary o ++ "(" ++ pPrintExp e ++ ")"
+pPrintExp (BinAct ((o, e1, e2), _)) = "(" ++ pPrintExp e1 ++ pPrintBinary o ++ pPrintExp e2 ++ ")"
 
 pPrintStat :: Statement -> [String]
+pPrintStat (Expr e) = [pPrintExp e]
+pPrintStat (Declare ((v, Nothing), _)) = ["DECLARE $" ++ v]
+pPrintStat (Declare ((v, Just e),  _)) = ["DECLARE $" ++ v ++ " = " ++ pPrintExp e]
 pPrintStat (Return (exp, _)) = ["RETURN "++pPrintExp exp]
 
 pPrintFunc :: FunctionDecl -> [String]
