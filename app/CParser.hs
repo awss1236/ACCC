@@ -58,9 +58,9 @@ parseSemicolon = Parser $ \case
 
 parseFactor :: Parser Exp
 parseFactor = parseInt <|>
-                (((\f (_, p)-> UnaryAct ((UMinus   , f), p)) <$> (parseToken Minus    *> parseFactor)) <*> parseToken Minus) <|>
-                (((\f (_, p)-> UnaryAct ((UComp    , f), p)) <$> (parseToken Comp     *> parseFactor)) <*> parseToken Comp) <|>
-                (((\f (_, p)-> UnaryAct ((ULogicNeg, f), p)) <$> (parseToken LogicNeg *> parseFactor)) <*> parseToken LogicNeg) <|>
+                (((\(_, p) f -> UnaryAct ((UMinus   , f), p)) <$> parseToken Minus)    <*> parseFactor) <|>
+                (((\(_, p) f -> UnaryAct ((UComp    , f), p)) <$> parseToken Comp)     <*> parseFactor) <|>
+                (((\(_, p) f -> UnaryAct ((ULogicNeg, f), p)) <$> parseToken LogicNeg) <*> parseFactor) <|>
                 (parseToken (Paren '(') *> parseExp <* parseToken (Paren ')')) <|>
                 (Var <$> parseVar)
       where parseInt = Constant <$> Parser (\case
