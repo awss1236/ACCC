@@ -23,21 +23,22 @@ genExpAsm m (BinAct((BGt,   e1, e2), _)) = genExpAsm m e1 ++ "  push   %eax\n" +
 genExpAsm m (BinAct((BLe,   e1, e2), _)) = genExpAsm m e1 ++ "  push   %eax\n" ++ genExpAsm m e2 ++ "  pop    %ecx\n  cmpl   %eax, %ecx\n  movl   $0, %eax\n  setle  %al\n"
 genExpAsm m (BinAct((BGe,   e1, e2), _)) = genExpAsm m e1 ++ "  push   %eax\n" ++ genExpAsm m e2 ++ "  pop    %ecx\n  cmpl   %eax, %ecx\n  movl   $0, %eax\n  setge  %al\n"
 genExpAsm m (Set((n, e), _)) = genExpAsm m e ++ "  movl   %eax, " ++ show (snd m M.! n) ++ "(%ebp)\n"
+genExpAsm m (Var(n, _)) = "  movl   " ++ show (snd m M.! n) ++ "(%ebp), %eax\n"
 
 
 genStatAsm :: StackState -> Statement -> (String, StackState)
-genStatAsm im (Return (exp, _)) = (genExpAsm im exp ++ "  ret\n", im)
+genStatAsm im (Return (exp, _)) = (genExpAsm im exp ++ "  movl   %ebp, %esp\n  pop    %ebp\n  ret\n", im)
 genStatAsm im (Expr exp)        = (genExpAsm im exp, im)
 genStatAsm (i, m) (Declare ((n, Nothing), _)) = (if M.member n m then "Variable redeclaration is a fucked up thing bud" else "  pushl  $69\n", (i-4, M.insert n i m))
-genStatAsm (i, m) (Declare ((n, Just e ), _)) = (if M.member n m then "Variable redeclaration is a fucked up thing bud" else genExpAsm (i, m) e ++ "  pushl  %eax\n", (i-4, M.insert n i m))
+genStatAsm (i, m) (Declare ((n, Just e ), _)) = (if M.member n m then "Variable redeclaration is a fucked up thing bud" else genExpAsm (i, m) e ++ "  push   %eax\n", (i-4, M.insert n i m))
 
 genFuncAsm :: Bool -> FunctionDecl -> String
-genFuncAsm False (FunctionDecl ((n, s), _)) = " .globl _"++n++"\n_"++n++":\n"++ fst (foldr (\stt (a, stk)-> let (na, nstk) = genStatAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s) ++ mReturnZero (last s)
+genFuncAsm False (FunctionDecl ((n, s), _)) = " .globl _"++n++"\n_"++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ fst (foldl (\(a, stk) stt -> let (na, nstk) = genStatAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s) ++ mReturnZero (last s)
       where mReturnZero (Return _) = ""
-            mReturnZero _ = "  movl   $0, %eax\n  ret\n"
-genFuncAsm True  (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n"++ fst (foldr (\stt (a, stk)-> let (na, nstk) = genStatAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s) ++ mReturnZero (last s)
+            mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $0, %eax\n  ret\n"
+genFuncAsm True  (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ fst (foldl (\(a, stk) stt -> let (na, nstk) = genStatAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s) ++ mReturnZero (last s)
       where mReturnZero (Return _) = ""
-            mReturnZero _ = "  movl   $0, %eax\n  ret\n"
+            mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $0, %eax\n  ret\n"
 
 genProgAsm :: Bool -> Program -> String
 genProgAsm b (Program (f, _)) = genFuncAsm b f
