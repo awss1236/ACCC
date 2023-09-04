@@ -113,15 +113,14 @@ parseFunctionDecl :: Parser FunctionDecl
 parseFunctionDecl = (\(s, p) ss -> FunctionDecl ((s, ss), p)) <$> parseName <*> parseStats <* parseToken (Paren '}')
                   where
                     parseName = parseToken (Keyword "int") *> parseVar <* parseToks (map Paren "(){")
-                    parseStats = Parser $ \ts -> do
+                    parseStats = Parser (\ts -> do
                                                   (s, r) <- runParser parseStatement ts
                                                   let test = runParser parseStats r
                                                   if isNothing test then Just ([s], r)
                                                   else
                                                     let (ss, r') = fromJust test
-                                                    in Just (s:ss, r')
---                                <|> pure []
---                                uncomment to support empty functions
+                                                    in Just (s:ss, r'))
+                                <|> pure []
 
 parseProgram :: Parser Program
 parseProgram = (flip $ curry Program) (0, 0) <$> parseFunctionDecl
