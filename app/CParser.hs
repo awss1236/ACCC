@@ -89,6 +89,7 @@ ggP l ts = Parser (\xs -> do
                       else let (f, grr) = fromJust goofyRes in Just (\x -> f $ BinAct((op, x, t), (a, b)), grr))
       where tToB = \case
                     Add -> BAdd
+                    Minus -> BSub
                     Mult -> BMult
                     Div -> BDiv
                     And -> BAnd
