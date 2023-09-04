@@ -103,7 +103,7 @@ ggP l ts = Parser (\xs -> do
 
 parseStatement :: Parser Statement
 parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")) <*> parseExp <* parseSemicolon
-                <|> Expr <$> parseExp
+                <|> Expr <$> parseExp <* parseSemicolon
                 <|> parseToken (Keyword "int")
                     *> (((\(i, p) e -> Declare ((i, e), p)) <$> parseVar)
                     <*> ((parseToken Assign *> (Just <$> parseExp)) <|> pure Nothing))
