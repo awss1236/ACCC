@@ -9,8 +9,8 @@ data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
 data BinaryOper   = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
 data Exp          = Var (Loc String) | Set (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) | Tern (Loc (Exp, Exp, Exp)) deriving (Show)
 
+newtype Declare   = Declare (Loc (String, Maybe Exp)) deriving (Show)
 data Statement    = Expr Exp | Return (Loc Exp) | If (Loc (Exp, Statement, Maybe Statement)) deriving (Show)
-data Declare = Declare (Loc (String, Maybe Exp)) deriving (Show)
 data BlockItem    = Stat Statement | Decl Declare deriving (Show)
 data FunctionDecl = FunctionDecl (Loc (String, [BlockItem])) deriving (Show)
 data Program      = Program (Loc FunctionDecl) deriving (Show)
@@ -77,7 +77,7 @@ parseRelExp = let p = parseAddExp in p <**> ggP p [Le, Ge, Lt, Gt] <|> p
 parseEquExp = let p = parseRelExp in p <**> ggP p [Equ, Nqu] <|> p
 parseAndExp = let p = parseEquExp in p <**> ggP p [And] <|> p
 parseOrExp  = let p = parseAndExp in p <**> ggP p [Or] <|> p
-parseTerExp = let p = parseOrExp  in ((((\oe e ce -> (oe, e, ce)) <$> p) <*> (parseToken Quest *> parseExp <* parseToken Colon)) <*> parseTerExp)<|> p
+parseTerExp = let p = parseOrExp  in (((((\oe (_, pos) e ce -> Tern ((oe, e, ce), pos)) <$> p) <*> parseToken Quest) <*> (parseExp <* parseToken Colon)) <*> parseTerExp)<|> p
 
 parseExp :: Parser Exp
 parseExp = ((\(i, p) e -> Set((i,e), p)) <$>parseVar <* parseToken Assign <*> parseExp) <|> parseOrExp
