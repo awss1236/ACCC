@@ -9,8 +9,10 @@ data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
 data BinaryOper   = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
 data Exp          = Var (Loc String) | Set (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) deriving (Show)
 
-data Statement    = Expr Exp | Declare (Loc (String, Maybe Exp)) | Return (Loc Exp) | If (Loc (Exp, Statement, Maybe Statement)) deriving (Show)
-data FunctionDecl = FunctionDecl (Loc (String, [Statement])) deriving (Show)
+data Statement    = Expr Exp | Return (Loc Exp) | If (Loc (Exp, Statement, Maybe Statement)) deriving (Show)
+data Declare = Declare (Loc (String, Maybe Exp)) deriving (Show)
+data BlockItem    = Stat Statement | Decl Declare deriving (Show)
+data FunctionDecl = FunctionDecl (Loc (String, [BlockItem])) deriving (Show)
 data Program      = Program (Loc FunctionDecl) deriving (Show)
 
 newtype Parser a = Parser {runParser :: [Loc Token] -> Maybe (a, [Loc Token])}
@@ -101,30 +103,38 @@ ggP l ts = Parser (\xs -> do
                     Le -> BLe
                     Ge -> BGe
 
-parseStatement :: Parser Statement
-parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")) <*> parseExp <* parseSemicolon
-                <|> Expr <$> parseExp <* parseSemicolon
-                <|> parseToken (Keyword "int")
+parseDeclare :: Parser Declare
+parseDeclare = parseToken (Keyword "int")
                     *> (((\(i, p) e -> Declare ((i, e), p)) <$> parseVar)
                     <*> ((parseToken Assign *> (Just <$> parseExp)) <|> pure Nothing))
                     <* parseSemicolon
+
+parseStatement :: Parser Statement
+parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")) <*> parseExp <* parseSemicolon
+                <|> Expr <$> parseExp <* parseSemicolon
                 <|> (\(_, p) e s ms -> If ((e, s, ms), p)) <$> parseToks [Keyword "if", Paren '(']
                     <*> parseExp
                     <*> (parseToks [Paren ')', Paren '{'] *> parseStatement <* parseToken (Paren '}'))
                     <*> ((parseToks [Keyword "else", Paren '{'] *> (Just <$> parseStatement) <* parseToken (Paren '}')) <|> pure Nothing)
 
+parseBlockItem :: Parser BlockItem
+parseBlockItem = Stat <$> parseStatement <|> Decl <$> parseDeclare
+
+parseBlock :: Parser [BlockItem]
+parseBlock = Parser (\ts -> do
+                            (i, r) <- runParser parseBlockItem ts
+                            let check = runParser parseBlock r
+                            if isNothing check then
+                              Just ([i], r)
+                            else
+                              let (is, r') = fromJust check
+                              in Just (i:is, r'))
+            <|> pure []
+
 parseFunctionDecl :: Parser FunctionDecl
-parseFunctionDecl = (\(s, p) ss -> FunctionDecl ((s, ss), p)) <$> parseName <*> parseStats <* parseToken (Paren '}')
+parseFunctionDecl = (\(s, p) ss -> FunctionDecl ((s, ss), p)) <$> parseName <*> parseBlock <* parseToken (Paren '}')
                   where
                     parseName = parseToken (Keyword "int") *> parseVar <* parseToks (map Paren "(){")
-                    parseStats = Parser (\ts -> do
-                                                  (s, r) <- runParser parseStatement ts
-                                                  let test = runParser parseStats r
-                                                  if isNothing test then Just ([s], r)
-                                                  else
-                                                    let (ss, r') = fromJust test
-                                                    in Just (s:ss, r'))
-                                <|> pure []
 
 parseProgram :: Parser Program
 parseProgram = (flip $ curry Program) (0, 0) <$> parseFunctionDecl
