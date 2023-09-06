@@ -6,7 +6,7 @@ import Control.Monad
 import Control.Applicative
 
 type Loc a = (a, (Int, Int))
-data Token = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon
+data Token = Keyword String | Variable String | NumLiteral Int | Paren Char | Semicolon | Quest | Colon
               | Minus | Comp | LogicNeg
               | Add | Mult | Div | And | Or | Equ | Nqu | Lt | Gt | Le | Ge | Assign deriving (Show, Eq)
 
@@ -72,6 +72,8 @@ nquL       = Nqu      <$ charL '!' <* charL '='
 leL        = Le       <$ charL '<' <* charL '='
 geL        = Ge       <$ charL '>' <* charL '='
 assignL    = Assign   <$ charL '='
+questL     = Quest    <$ charL '?'
+colonL     = Colon    <$ charL ':'
 
 keywords = ["auto","break","case","char","const","continue","default","do","double","else","enum","extern","float","for","goto","if","int","long","register","return","short","signed","sizeof","static","struct","switch","typedef","union","unsigned","void","volatile","while"]
 keywordL :: Lexer Token
@@ -87,7 +89,7 @@ parenL :: Lexer Token
 parenL = Paren <$> foldr ((<|>) . charL) empty "(){}[]"
 
 tokenL :: Lexer Token
-tokenL = let nttws = keywordL <|> variableL <|> numberL <|> parenL <|> semicolonL
+tokenL = let nttws = keywordL <|> variableL <|> numberL <|> parenL <|> semicolonL <|> colonL <|> questL
                  <|> addL <|> multL <|> divL <|> leL <|> geL <|> ltL <|> gtL <|> andL <|> orL <|> equL <|> nquL <|> assignL
                  <|> minusL <|> compL <|> logicNegL
             in (ws *> nttws <* ws) <|> (nttws <* ws) <|> nttws
