@@ -9,7 +9,7 @@ data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
 data BinaryOper   = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
 data Exp          = Var (Loc String) | Set (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) deriving (Show)
 
-data Statement    = Expr Exp | Declare (Loc (String, Maybe Exp)) | Return (Loc Exp) deriving (Show)
+data Statement    = Expr Exp | Declare (Loc (String, Maybe Exp)) | Return (Loc Exp) | If (Loc (Exp, Statement, Maybe Statement)) deriving (Show)
 data FunctionDecl = FunctionDecl (Loc (String, [Statement])) deriving (Show)
 data Program      = Program (Loc FunctionDecl) deriving (Show)
 
@@ -108,6 +108,10 @@ parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")
                     *> (((\(i, p) e -> Declare ((i, e), p)) <$> parseVar)
                     <*> ((parseToken Assign *> (Just <$> parseExp)) <|> pure Nothing))
                     <* parseSemicolon
+                <|> (\(_, p) e s ms -> If ((e, s, ms), p)) <$> parseToks [Keyword "if", Paren '(']
+                    <*> parseExp
+                    <*> (parseToks [Paren ')', Paren '{'] *> parseStatement <* parseToken (Paren '}'))
+                    <*> ((parseToks [Keyword "else", Paren '{'] *> (Just <$> parseStatement) <* parseToken (Paren '}')) <|> pure Nothing)
 
 parseFunctionDecl :: Parser FunctionDecl
 parseFunctionDecl = (\(s, p) ss -> FunctionDecl ((s, ss), p)) <$> parseName <*> parseStats <* parseToken (Paren '}')
