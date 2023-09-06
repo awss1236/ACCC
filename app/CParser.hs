@@ -115,8 +115,8 @@ parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")
                 <|> Expr <$> parseExp <* parseSemicolon
                 <|> (\(_, p) e s ms -> If ((e, s, ms), p)) <$> parseToks [Keyword "if", Paren '(']
                     <*> parseExp
-                    <*> (parseToks [Paren ')', Paren '{'] *> parseStatement <* parseToken (Paren '}'))
-                    <*> ((parseToks [Keyword "else", Paren '{'] *> (Just <$> parseStatement) <* parseToken (Paren '}')) <|> pure Nothing)
+                    <*> (parseToken (Paren ')') *> parseStatement)
+                    <*> ((parseToken (Keyword "else") *> (Just <$> parseStatement)) <|> pure Nothing)
 
 parseBlockItem :: Parser BlockItem
 parseBlockItem = Stat <$> parseStatement <|> Decl <$> parseDeclare
