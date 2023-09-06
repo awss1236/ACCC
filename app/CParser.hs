@@ -77,10 +77,10 @@ parseRelExp = let p = parseAddExp in p <**> ggP p [Le, Ge, Lt, Gt] <|> p
 parseEquExp = let p = parseRelExp in p <**> ggP p [Equ, Nqu] <|> p
 parseAndExp = let p = parseEquExp in p <**> ggP p [And] <|> p
 parseOrExp  = let p = parseAndExp in p <**> ggP p [Or] <|> p
-parseTerExp = let p = parseOrExp  in (((((\oe (_, pos) e ce -> Tern ((oe, e, ce), pos)) <$> p) <*> parseToken Quest) <*> (parseExp <* parseToken Colon)) <*> parseTerExp)<|> p
+parseTerExp = let p = parseOrExp  in (((((\oe (_, pos) e ce -> Tern ((oe, e, ce), pos)) <$> p) <*> parseToken Quest) <*> (parseExp <* parseToken Colon)) <*> parseTerExp) <|> p
 
 parseExp :: Parser Exp
-parseExp = ((\(i, p) e -> Set((i,e), p)) <$>parseVar <* parseToken Assign <*> parseExp) <|> parseOrExp
+parseExp = ((\(i, p) e -> Set((i,e), p)) <$> parseVar <* parseToken Assign <*> parseExp) <|> parseTerExp
 
 ggP :: Parser Exp -> [Token] -> Parser(Exp -> Exp)
 ggP l ts = Parser (\xs -> do
