@@ -24,7 +24,7 @@ genExpAsm m (BinAct((BLe,   e1, e2), _)) = genExpAsm m e1 ++ "  push   %eax\n" +
 genExpAsm m (BinAct((BGe,   e1, e2), _)) = genExpAsm m e1 ++ "  push   %eax\n" ++ genExpAsm m e2 ++ "  pop    %ecx\n  cmpl   %eax, %ecx\n  movl   $0, %eax\n  setge  %al\n"
 genExpAsm m (Set((n, e), _)) = genExpAsm m e ++ "  movl   %eax, " ++ show (snd m M.! n) ++ "(%ebp)\n"
 genExpAsm m (Var(n, _)) = "  movl   " ++ show (snd m M.! n) ++ "(%ebp), %eax\n"
-genExpAsm m (Tern ((c, e1, e2), (x, y))) = let p = "_" ++ show x ++ "_" ++ show y in genExpAsm m c ++ "  cmpl   $0, %eax\n  je     _els" ++ p ++ "\n" ++ genExpAsm m e1 ++ "  jmp    _end" ++ p ++ "\n" ++ genExpAsm m e2 ++ "_end" ++ p ++ ":\n"
+genExpAsm m (Tern ((c, e1, e2), (x, y))) = let p = "_" ++ show x ++ "_" ++ show y in genExpAsm m c ++ "  cmpl   $0, %eax\n  je     _els" ++ p ++ "\n" ++ genExpAsm m e1 ++ "  jmp    _end" ++ p ++ "\n_els" ++ p ++ ":\n" ++ genExpAsm m e2 ++ "_end" ++ p ++ ":\n"
 
 
 genBlockAsm :: StackState -> BlockItem -> (String, StackState)
