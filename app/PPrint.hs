@@ -34,7 +34,7 @@ pPrintBlockItem (Stat (Expr e)) = [pPrintExp e]
 pPrintBlockItem (Stat (Return (exp, _))) = ["RETURN "++pPrintExp exp]
 pPrintBlockItem (Stat (If ((e, s, Nothing), _))) = ("IF " ++ pPrintExp e ++ ":") : map ("  " ++) (pPrintBlockItem (Stat s))
 pPrintBlockItem (Stat (If ((e, s, Just s'), _))) = ("IF " ++ pPrintExp e ++ ":") : map ("  " ++) (pPrintBlockItem (Stat s)) ++ ("ELSE:" : map ("  " ++) (pPrintBlockItem (Stat s')))
-pPrintBlockItem (Stat (Scope (bs, _))) = ["{", concat (map ("  " ++) $ map pPrintBlockItem bs), "}"]
+pPrintBlockItem (Stat (Scope (bs, _))) = "{" : (map (\s -> "  "++s++"\n") $ concatMap pPrintBlockItem bs) ++ ["}"]
 pPrintBlockItem (Decl (Declare ((v, Nothing), _))) = ["DECLARE $" ++ v]
 pPrintBlockItem (Decl (Declare ((v, Just e ), _))) = ["DECLARE $" ++ v ++ " = " ++ pPrintExp e]
 
