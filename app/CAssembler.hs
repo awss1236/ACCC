@@ -26,22 +26,31 @@ genExpAsm m (Set((n, e), _)) = genExpAsm m e ++ "  movl   %eax, " ++ show (snd m
 genExpAsm m (Var(n, _)) = "  movl   " ++ show (snd m M.! n) ++ "(%ebp), %eax\n"
 genExpAsm m (Tern ((c, e1, e2), (x, y))) = let p = "_" ++ show x ++ "_" ++ show y in genExpAsm m c ++ "  cmpl   $0, %eax\n  je     _els" ++ p ++ "\n" ++ genExpAsm m e1 ++ "  jmp    _end" ++ p ++ "\n_els" ++ p ++ ":\n" ++ genExpAsm m e2 ++ "_end" ++ p ++ ":\n"
 
+genStatementAsm :: StackState -> Statement -> String
+genStatementAsm im (Return (exp, _)) = genExpAsm im exp ++ "  movl   %ebp, %esp\n  pop    %ebp\n  ret\n"
+genStatementAsm im (Expr exp)        = genExpAsm im exp
+genStatementAsm im (Scope (bs, _))   = genBlockAsm im bs
+genStatementAsm im (If ((e, s, Nothing), (x, y))) = let p = "_" ++ show x ++ "_" ++ show y in genExpAsm im e ++ "  cmpl   $0, %eax\n  je     _end" ++ p ++ "\n" ++ genStatementAsm im s ++ "_end" ++ p ++ ":\n"
+genStatementAsm im (If ((e, s, Just s'), (x, y))) = let p = "_" ++ show x ++ "_" ++ show y in genExpAsm im e ++ "  cmpl   $0, %eax\n  je     _els" ++ p ++ "\n" ++ genStatementAsm im s ++ "  jmp    _end" ++ p ++ "\n_els" ++ p ++ ":\n" ++ genStatementAsm im s' ++ "_end" ++ p ++ ":\n"
 
-genBlockAsm :: StackState -> BlockItem -> (String, StackState)
-genBlockAsm im (Stat (Return (exp, _))) = (genExpAsm im exp ++ "  movl   %ebp, %esp\n  pop    %ebp\n  ret\n", im)
-genBlockAsm im (Stat (Expr exp))        = (genExpAsm im exp, im)
-genBlockAsm (i, m) (Decl (Declare ((n, Nothing), _))) = (if M.member n m then "Variable redeclaration is a fucked up thing bud\n" else "  pushl  $69\n", (i-4, M.insert n i m))
-genBlockAsm (i, m) (Decl (Declare ((n, Just e ), _))) = (if M.member n m then "Variable redeclaration is a fucked up thing bud\n" else genExpAsm (i, m) e ++ "  push   %eax\n", (i-4, M.insert n i m))
-genBlockAsm im (Stat (If ((e, s, Nothing), (x, y)))) = let p = "_" ++ show x ++ "_" ++ show y in (genExpAsm im e ++ "  cmpl   $0, %eax\n  je     _end" ++ p ++ "\n" ++ fst (genBlockAsm im (Stat s)) ++ "_end" ++ p ++ ":\n", im)
-genBlockAsm im (Stat (If ((e, s, Just s'), (x, y)))) = let p = "_" ++ show x ++ "_" ++ show y in (genExpAsm im e ++ "  cmpl   $0, %eax\n  je     _els" ++ p ++ "\n" ++ fst (genBlockAsm im (Stat s)) ++ "  jmp    _end" ++ p ++ "\n_els" ++ p ++ ":\n" ++ fst (genBlockAsm im (Stat s')) ++ "_end" ++ p ++ ":\n", im)
+genDeclarationAsm :: (StackState, [String]) -> Declare -> (String, (StackState, [String]))
+genDeclarationAsm ((i, m), s) (Declare ((n, Nothing), _)) = if n `elem` s then ("Variable redeclared within same scope bud.", ((i, m), s)) else ("  pushl  $69\n", ((i-4, M.insert n i m), n:s))
+genDeclarationAsm ((i, m), s) (Declare ((n, Just e ), _)) = if n `elem` s then ("Variable redeclared within same scope bud.", ((i, m), s)) else (genExpAsm (i, m) e ++ "  pushl  %eax\n", ((i-4, M.insert n i m), n:s))
+
+genBlockItemAsm :: (StackState, [String]) -> BlockItem -> (String, (StackState, [String]))
+genBlockItemAsm (stk, scp) (Stat stt) = (genStatementAsm stk stt, (stk, scp))
+genBlockItemAsm s (Decl dec) = genDeclarationAsm s dec
+
+genBlockAsm :: StackState -> [BlockItem] -> String
+genBlockAsm stk bs = fst $ foldl (\(asm, s) b -> let (asm', s') = genBlockItemAsm s b in (asm ++ asm', s')) ("", (stk, [])) bs
 
 genFuncAsm :: Bool -> FunctionDecl -> String
 genFuncAsm False (FunctionDecl ((n, []), _)) = " .globl _"++n++"\n_"++n++":\n  movl   $0, %eax\n  ret\n"
 genFuncAsm True  (FunctionDecl ((n, []), _)) = " .globl "++n++"\n"++n++":\n  movl   $0, %eax\n  ret\n"
-genFuncAsm False (FunctionDecl ((n, s), _)) = " .globl _"++n++"\n_"++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ fst (foldl (\(a, stk) stt -> let (na, nstk) = genBlockAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s) ++ mReturnZero (last s)
+genFuncAsm False (FunctionDecl ((n, s), _)) = " .globl _"++n++"\n_"++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ genBlockAsm (-4, M.empty) s ++ mReturnZero (last s)
       where mReturnZero (Stat (Return _)) = ""
             mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $0, %eax\n  ret\n"
-genFuncAsm True  (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ fst (foldl (\(a, stk) stt -> let (na, nstk) = genBlockAsm stk stt in (a ++ na, nstk)) ("", (-4, M.empty)) s) ++ mReturnZero (last s)
+genFuncAsm True  (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ genBlockAsm (-4, M.empty) s ++ mReturnZero (last s)
       where mReturnZero (Stat (Return _)) = ""
             mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $0, %eax\n  ret\n"
 
