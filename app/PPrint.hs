@@ -30,7 +30,8 @@ pPrintExp (BinAct ((o, e1, e2), _)) = "(" ++ pPrintExp e1 ++ pPrintBinary o ++ p
 pPrintExp (Tern ((c, e1, e2), _)) = "(IF " ++ pPrintExp c ++ " THEN " ++ pPrintExp e1 ++ " ELSE " ++ pPrintExp e2 ++ ")"
 
 pPrintBlockItem :: BlockItem -> [String]
-pPrintBlockItem (Stat (Expr e)) = [pPrintExp e]
+pPrintBlockItem (Stat (Expr (Just e))) = [pPrintExp e]
+pPrintBlockItem (Stat (Expr Nothing))  = []
 pPrintBlockItem (Stat (Return (exp, _))) = ["RETURN "++pPrintExp exp]
 pPrintBlockItem (Stat (If ((e, s, Nothing), _))) = ("IF " ++ pPrintExp e ++ ":") : map ("  " ++) (pPrintBlockItem (Stat s))
 pPrintBlockItem (Stat (If ((e, s, Just s'), _))) = ("IF " ++ pPrintExp e ++ ":") : map ("  " ++) (pPrintBlockItem (Stat s)) ++ ("ELSE:" : map ("  " ++) (pPrintBlockItem (Stat s')))

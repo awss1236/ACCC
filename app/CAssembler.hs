@@ -28,7 +28,8 @@ genExpAsm m (Tern ((c, e1, e2), (x, y))) = let p = "_" ++ show x ++ "_" ++ show 
 
 genStatementAsm :: StackState -> Statement -> String
 genStatementAsm im (Return (exp, _)) = genExpAsm im exp ++ "  movl   %ebp, %esp\n  pop    %ebp\n  ret\n"
-genStatementAsm im (Expr exp)        = genExpAsm im exp
+genStatementAsm im (Expr (Just exp)) = genExpAsm im exp
+genStatementAsm im (Expr Nothing)    = "# You got an empty expression in there fr fr.\n"
 genStatementAsm im (Scope (bs, _))   = genBlockAsm im bs
 genStatementAsm im (If ((e, s, Nothing), (x, y))) = let p = "_" ++ show x ++ "_" ++ show y in genExpAsm im e ++ "  cmpl   $0, %eax\n  je     _end" ++ p ++ "\n" ++ genStatementAsm im s ++ "_end" ++ p ++ ":\n"
 genStatementAsm im (If ((e, s, Just s'), (x, y))) = let p = "_" ++ show x ++ "_" ++ show y in genExpAsm im e ++ "  cmpl   $0, %eax\n  je     _els" ++ p ++ "\n" ++ genStatementAsm im s ++ "  jmp    _end" ++ p ++ "\n_els" ++ p ++ ":\n" ++ genStatementAsm im s' ++ "_end" ++ p ++ ":\n"
