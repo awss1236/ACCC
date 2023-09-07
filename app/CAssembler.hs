@@ -42,7 +42,8 @@ genBlockItemAsm (stk, scp) (Stat stt) = (genStatementAsm stk stt, (stk, scp))
 genBlockItemAsm s (Decl dec) = genDeclarationAsm s dec
 
 genBlockAsm :: StackState -> [BlockItem] -> String
-genBlockAsm stk bs = fst $ foldl (\(asm, s) b -> let (asm', s') = genBlockItemAsm s b in (asm ++ asm', s')) ("", (stk, [])) bs
+genBlockAsm stk bs = let (asm, (_, scp)) = foldl (\(asm, s) b -> let (asm', s') = genBlockItemAsm s b in (asm ++ asm', s')) ("", (stk, [])) bs
+                     in asm ++ "  addl   $" ++ show (length scp * 4) ++ ", %esp\n"
 
 genFuncAsm :: Bool -> FunctionDecl -> String
 genFuncAsm False (FunctionDecl ((n, []), _)) = " .globl _"++n++"\n_"++n++":\n  movl   $0, %eax\n  ret\n"
