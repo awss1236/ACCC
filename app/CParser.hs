@@ -10,7 +10,11 @@ data BinaryOper   = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt
 data Exp          = Var (Loc String) | Set (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) | Tern (Loc (Exp, Exp, Exp)) deriving (Show)
 
 newtype Declare   = Declare (Loc (String, Maybe Exp)) deriving (Show)
-data Statement    = Expr (Maybe Exp) | Return (Loc Exp) | If (Loc (Exp, Statement, Maybe Statement)) | Scope (Loc [BlockItem]) deriving (Show)
+data Statement    = Expr (Maybe Exp) | Return (Loc Exp) | Break | Continue |
+                    If (Loc (Exp, Statement, Maybe Statement)) |
+                    For (Loc (Maybe Exp, Maybe Exp, Maybe Exp)) | ForDecl (Loc (Declare, Maybe Exp, Maybe Exp)) |
+                    While (Loc (Exp, Statement)) | Do (Loc (Statement, Exp)) |
+                    Scope (Loc [BlockItem]) deriving (Show)
 data BlockItem    = Stat Statement | Decl Declare deriving (Show)
 data FunctionDecl = FunctionDecl (Loc (String, [BlockItem])) deriving (Show)
 data Program      = Program (Loc FunctionDecl) deriving (Show)
