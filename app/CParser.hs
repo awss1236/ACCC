@@ -12,7 +12,7 @@ data Exp          = Var (Loc String) | Set (Loc (String, Exp)) | Constant (Loc I
 newtype Declare   = Declare (Loc (String, Maybe Exp)) deriving (Show)
 data Statement    = Expr (Maybe Exp) | Return (Loc Exp) | Break | Continue |
                     If (Loc (Exp, Statement, Maybe Statement)) |
-                    For (Loc (Maybe Exp, Maybe Exp, Maybe Exp)) | ForDecl (Loc (Declare, Maybe Exp, Maybe Exp)) |
+                    For (Loc (Maybe Exp, Exp, Maybe Exp, Statement)) | ForDecl (Loc (Declare, Exp, Maybe Exp, Statement)) |
                     While (Loc (Exp, Statement)) | Do (Loc (Statement, Exp)) |
                     Scope (Loc [BlockItem]) deriving (Show)
 data BlockItem    = Stat Statement | Decl Declare deriving (Show)
@@ -124,6 +124,24 @@ parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")
                 <|> ((\(_, p) b -> Scope (b, p)) <$> parseToken (Paren '{'))
                     <*> parseBlock
                     <* parseToken (Paren '}')
+                <|> Break <$ parseToken (Keyword "break") <* parseSemicolon
+                <|> Continue <$ parseToken (Keyword "continue") <* parseSemicolon
+                <|> (\(_, p) e1 e2 e3 s -> For ((e1, e2, e3, s), p)) <$> parseToks [Keyword "for", Paren '(']
+                    <*> (((Just <$> parseExp) <|> pure Nothing) <* parseSemicolon)
+                    <*> ((parseExp <|> pure (Constant (1, (-1, -1)))) <* parseSemicolon)
+                    <*> ((Just <$> parseExp) <|> pure Nothing)
+                    <*> (parseToken (Paren ')') *> parseStatement)
+                <|> (\(_, p) e1 e2 e3 s -> ForDecl ((e1, e2, e3, s), p)) <$> parseToks [Keyword "for", Paren '(']
+                    <*> parseDeclare
+                    <*> ((parseExp <|> pure (Constant (1, (-1, -1)))) <* parseSemicolon)
+                    <*> ((Just <$> parseExp) <|> pure Nothing)
+                    <*> (parseToken (Paren ')') *> parseStatement)
+                <|> (\(_, p) e s -> While ((e, s), p)) <$> parseToks [Keyword "while", Paren '(']
+                    <*> parseExp <* parseToken (Paren ')')
+                    <*> parseStatement
+                <|> (\(_, p) s e -> Do ((s, e), p)) <$> parseToken (Keyword "do")
+                    <*> parseStatement
+                    <*> (parseToks [Keyword "while", Paren '('] *> parseExp <* parseToks [Paren ')', Semicolon])
 
 parseBlockItem :: Parser BlockItem
 parseBlockItem = Stat <$> parseStatement <|> Decl <$> parseDeclare
