@@ -9,6 +9,7 @@ import System.Exit
 
 import CLexer
 import CParser
+import CChecker
 import CAssembler
 import PPrint
 
@@ -38,11 +39,13 @@ main = do
         let pts = fromJust mpts
         putStrLn "\nAST:"
         putStrLn $ pPrintProg pts
-        putStrLn "\nASM:"
-        putStrLn $ genProgAsm True pts
+        if isNothing $ check pts then do
+          putStrLn "\nASM:"
+          putStrLn $ genProgAsm True pts
 
-        let asf = sf -<.> "s"
-        if null $ tail args then writeFile asf (genProgAsm False pts)
-        else writeFile asf (genProgAsm True pts)
-        runCommand $ "gcc -m32 " ++ asf ++ " -o " ++ (takeDirectory sf </> "a.out")
-        exitSuccess
+          let asf = sf -<.> "s"
+          if null $ tail args then writeFile asf (genProgAsm False pts)
+          else writeFile asf (genProgAsm True pts)
+          runCommand $ "gcc -m32 " ++ asf ++ " -o " ++ (takeDirectory sf </> "a.out")
+          exitSuccess
+        else putStrLn $ fromJust (check pts)
