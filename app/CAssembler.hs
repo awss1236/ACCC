@@ -35,7 +35,7 @@ genStatementAsm im (If ((e, s, Nothing), (x, y))) = let p = "_"++show x++"_"++sh
 genStatementAsm im (If ((e, s, Just s'), (x, y))) = let p = "_"++show x++"_"++show y in genExpAsm im e++"  cmpl   $0, %eax\n  je     _els"++p++"\n"++genStatementAsm im s++"  jmp    _end"++p++"\n_els"++p++":\n"++genStatementAsm im s'++"_end"++p++":\n"
 genStatementAsm im (While ((e, s), (x, y))) = let p = "_"++show x++"_"++show y in "_while"++p++":\n"++genExpAsm im e++"  cmpl   $0, %eax\n  je     _end"++p++"\n"++genStatementAsm im s++"  jmp    _while"++p++"\n_end"++p++":\n"
 genStatementAsm im (Do ((s, e), (x, y))) = let p = "_"++show x++"_"++show y in "_do"++p++":\n"++genStatementAsm im s++genExpAsm im e++"  cmpl   $0, %eax\n  jne    _do"++p++"\n"
-genStatementAsm im (For ((me1, e, me2, s), (x, y))) = let p = "_"++show x++"_"++show y in genMExpAsm im me1++"_for"++p++":\n"++genExpAsm im e++"  cmpl   $0, %eax\n je     _end"++p++"\n"++genStatementAsm im s++genMExpAsm im me2++"  jmp    _for"++p++"\n_end"++p++":\n"
+genStatementAsm im (For ((me1, e, me2, s), (x, y))) = let p = "_"++show x++"_"++show y in genMExpAsm im me1++"_for"++p++":\n"++genExpAsm im e++"  cmpl   $0, %eax\n  je     _end"++p++"\n"++genStatementAsm im s++genMExpAsm im me2++"  jmp    _for"++p++"\n_end"++p++":\n"
              where genMExpAsm :: StackState -> Maybe Exp -> String
                    genMExpAsm _ Nothing = ""
                    genMExpAsm im (Just e) = genExpAsm im e
