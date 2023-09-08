@@ -44,8 +44,9 @@ main = do
           putStrLn $ genProgAsm True pts
 
           let asf = sf -<.> "s"
-          if null $ tail args then writeFile asf (genProgAsm False pts)
-          else writeFile asf (genProgAsm True pts)
+          writeFile asf (genProgAsm pts)
           runCommand $ "gcc -m32 " ++ asf ++ " -o " ++ (takeDirectory sf </> "a.out")
           exitSuccess
-        else putStrLn $ fromJust (check pts)
+        else do 
+          putStrLn $ fromJust (check pts)
+          exitWith (ExitFailure 2)

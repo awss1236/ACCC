@@ -56,15 +56,11 @@ genBlockAsm :: (StackState, String) -> [BlockItem] -> String
 genBlockAsm (stk, l) bs = let (asm, ((_, scp), _)) = foldl (\(asm, s) b -> let (asm', s') = genBlockItemAsm s b in (asm++asm', s')) ("", ((stk, []), l)) bs
                      in asm++"  addl   $"++show (length scp * 4)++", %esp\n"
 
-genFuncAsm :: Bool -> FunctionDecl -> String
-genFuncAsm False (FunctionDecl ((n, []), _)) = " .globl _"++n++"\n_"++n++":\n  movl   $0, %eax\n  ret\n"
-genFuncAsm True  (FunctionDecl ((n, []), _)) = " .globl "++n++"\n"++n++":\n  movl   $0, %eax\n  ret\n"
-genFuncAsm False (FunctionDecl ((n, s), _)) = " .globl _"++n++"\n_"++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ genBlockAsm ((-4, M.empty), "NOT_IN_LOOP") s++mReturnZero (last s)
-      where mReturnZero (Stat (Return _)) = ""
-            mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $0, %eax\n  ret\n"
-genFuncAsm True  (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ genBlockAsm ((-4, M.empty), "NOT_IN_LOOP") s++mReturnZero (last s)
+genFuncAsm :: FunctionDecl -> String
+genFuncAsm (FunctionDecl ((n, []), _)) = " .globl "++n++"\n"++n++":\n  movl   $0, %eax\n  ret\n"
+genFuncAsm (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ genBlockAsm ((-4, M.empty), "NOT_IN_LOOP") s++mReturnZero (last s)
       where mReturnZero (Stat (Return _)) = ""
             mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $0, %eax\n  ret\n"
 
-genProgAsm :: Bool -> Program -> String
-genProgAsm b (Program (f, _)) = genFuncAsm b f
+genProgAsm :: Program -> String
+genProgAsm (Program (f, _)) = genFuncAsm f
