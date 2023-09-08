@@ -1,4 +1,6 @@
 module PPrint where
+import Data.Maybe
+
 import CLexer
 import CParser
 
@@ -32,9 +34,15 @@ pPrintExp (Tern ((c, e1, e2), _)) = "(IF " ++ pPrintExp c ++ " THEN " ++ pPrintE
 pPrintBlockItem :: BlockItem -> [String]
 pPrintBlockItem (Stat (Expr (Just e))) = [pPrintExp e]
 pPrintBlockItem (Stat (Expr Nothing))  = []
+pPrintBlockItem (Stat Break) = ["BREAK"]
+pPrintBlockItem (Stat Continue) = ["CONTINUE"]
 pPrintBlockItem (Stat (Return (exp, _))) = ["RETURN "++pPrintExp exp]
 pPrintBlockItem (Stat (If ((e, s, Nothing), _))) = ("IF " ++ pPrintExp e ++ ":") : map ("  " ++) (pPrintBlockItem (Stat s))
 pPrintBlockItem (Stat (If ((e, s, Just s'), _))) = ("IF " ++ pPrintExp e ++ ":") : map ("  " ++) (pPrintBlockItem (Stat s)) ++ ("ELSE:" : map ("  " ++) (pPrintBlockItem (Stat s')))
+pPrintBlockItem (Stat (While ((e, s), _))) = ("WHILE " ++ pPrintExp e) : (map ("  " ++) (pPrintBlockItem (Stat s)))
+pPrintBlockItem (Stat (Do ((s, e), _))) = "DO" : (map ("  " ++) $ pPrintBlockItem (Stat s)) ++ ["WHILE " ++ pPrintExp e]
+pPrintBlockItem (Stat (For ((me1, c, me2, s), _))) = [if isNothing me1 then "" else pPrintExp $ fromJust me1, "WHILE " ++ pPrintExp c ++ ":"] ++ (map ("  " ++) $ pPrintBlockItem (Stat s)) ++ (if isNothing me2 then [] else ["  " ++ (pPrintExp $ fromJust me2)])
+pPrintBlockItem (Stat (ForDecl ((d, c, me, s), _))) = pPrintBlockItem (Decl d) ++ ["WHILE " ++ pPrintExp c ++ ":"] ++ (map ("  " ++) $ pPrintBlockItem (Stat s)) ++ [if isNothing me then "" else "  " ++ (pPrintExp $ fromJust me)]
 pPrintBlockItem (Stat (Scope (bs, _))) = "{" : (map (\s -> "  "++s) $ concatMap pPrintBlockItem bs) ++ ["}"]
 pPrintBlockItem (Decl (Declare ((v, Nothing), _))) = ["DECLARE $" ++ v]
 pPrintBlockItem (Decl (Declare ((v, Just e ), _))) = ["DECLARE $" ++ v ++ " = " ++ pPrintExp e]
