@@ -7,7 +7,11 @@ import Data.Bifunctor
 
 data UnaryOper    = UMinus | UComp | ULogicNeg    deriving (Show)
 data BinaryOper   = BMult | BDiv | BAdd  | BSub | BAnd | BOr | BEqu | BNqu | BLt | BGt | BLe | BGe deriving (Show)
-data Exp          = Var (Loc String) | Set (Loc (String, Exp)) | Constant (Loc Int) | UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) | Tern (Loc (Exp, Exp, Exp)) deriving (Show)
+data Exp          = Var (Loc String) | Set (Loc (String, Exp)) |
+                    Constant (Loc Int) |
+                    UnaryAct (Loc (UnaryOper, Exp)) | BinAct (Loc (BinaryOper, Exp, Exp)) |
+                    Tern (Loc (Exp, Exp, Exp)) |
+                    Call (Loc (String, [Exp])) deriving (Show)
 
 newtype Declare   = Declare (Loc (String, Maybe Exp)) deriving (Show)
 data Statement    = Expr (Maybe Exp) | Return (Loc Exp) | Break | Continue |
@@ -16,8 +20,8 @@ data Statement    = Expr (Maybe Exp) | Return (Loc Exp) | Break | Continue |
                     While (Loc (Exp, Statement)) | Do (Loc (Statement, Exp)) |
                     Scope (Loc [BlockItem]) deriving (Show)
 data BlockItem    = Stat Statement | Decl Declare deriving (Show)
-data FunctionDecl = FunctionDecl (Loc (String, [BlockItem])) deriving (Show)
-data Program      = Program (Loc FunctionDecl) deriving (Show)
+data FunctionDecl = FunctionDecl (Loc (String, Maybe [String], Maybe [BlockItem])) deriving (Show)
+data Program      = Program [FunctionDecl] deriving (Show)
 
 newtype Parser a = Parser {runParser :: [Loc Token] -> Maybe (a, [Loc Token])}
 
@@ -67,11 +71,23 @@ parseFactor = parseInt <|>
                 (((\(_, p) f -> UnaryAct ((UMinus   , f), p)) <$> parseToken Minus)    <*> parseFactor) <|>
                 (((\(_, p) f -> UnaryAct ((UComp    , f), p)) <$> parseToken Comp)     <*> parseFactor) <|>
                 (((\(_, p) f -> UnaryAct ((ULogicNeg, f), p)) <$> parseToken LogicNeg) <*> parseFactor) <|>
+                parseCallExp <|>
                 (parseToken (Paren '(') *> parseExp <* parseToken (Paren ')')) <|>
                 (Var <$> parseVar)
       where parseInt = Constant <$> Parser (\case
                                             ((NumLiteral i, (x, y)) : rest) -> Just ((i, (x, y)), rest)
                                             _                     -> Nothing)
+
+parseCallExp = (\(n, p) a -> Call ((n, a), p)) <$> parseVar
+               <*> (parseToken (Paren '(') *> (argsP <|> pure []) <* parseToken (Paren ')'))
+               where argsP = Parser $ \ts -> do
+                                             (a, r) <- runParser parseExp ts
+                                             let t = runParser (parseToken Comma *> argsP) r
+                                             if isNothing t then
+                                               Just ([a], r)
+                                             else
+                                               let (ra, r') = fromJust t
+                                               in Just (a:ra, r')
 
 parseTerm  :: Parser Exp
 parseTerm = let p = parseFactor in p <**> ggP p [Mult, Div] <|> p
@@ -116,7 +132,7 @@ parseDeclare = parseToken (Keyword "int")
 
 parseStatement :: Parser Statement
 parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")) <*> parseExp <* parseSemicolon
-                <|> Expr <$> (Just <$> parseExp <|> pure Nothing) <* parseSemicolon
+                <|> Expr <$> optional parseExp <* parseSemicolon
                 <|> (\(_, p) e s ms -> If ((e, s, ms), p)) <$> parseToks [Keyword "if", Paren '(']
                     <*> parseExp
                     <*> (parseToken (Paren ')') *> parseStatement)
@@ -127,14 +143,14 @@ parseStatement = ((\(_, p) e -> Return (e, p)) <$> parseToken (Keyword "return")
                 <|> Break <$ parseToken (Keyword "break") <* parseSemicolon
                 <|> Continue <$ parseToken (Keyword "continue") <* parseSemicolon
                 <|> (\(_, p) e1 e2 e3 s -> For ((e1, e2, e3, s), p)) <$> parseToks [Keyword "for", Paren '(']
-                    <*> (((Just <$> parseExp) <|> pure Nothing) <* parseSemicolon)
+                    <*> (optional parseExp <* parseSemicolon)
                     <*> ((parseExp <|> pure (Constant (1, (-1, -1)))) <* parseSemicolon)
-                    <*> ((Just <$> parseExp) <|> pure Nothing)
+                    <*> optional parseExp
                     <*> (parseToken (Paren ')') *> parseStatement)
                 <|> (\(_, p) e1 e2 e3 s -> ForDecl ((e1, e2, e3, s), p)) <$> parseToks [Keyword "for", Paren '(']
                     <*> parseDeclare
                     <*> ((parseExp <|> pure (Constant (1, (-1, -1)))) <* parseSemicolon)
-                    <*> ((Just <$> parseExp) <|> pure Nothing)
+                    <*> optional parseExp
                     <*> (parseToken (Paren ')') *> parseStatement)
                 <|> (\(_, p) e s -> While ((e, s), p)) <$> parseToks [Keyword "while", Paren '(']
                     <*> parseExp <* parseToken (Paren ')')
@@ -158,12 +174,29 @@ parseBlock = Parser (\ts -> do
             <|> pure []
 
 parseFunctionDecl :: Parser FunctionDecl
-parseFunctionDecl = (\(s, p) ss -> FunctionDecl ((s, ss), p)) <$> parseName <*> parseBlock <* parseToken (Paren '}')
-                  where
-                    parseName = parseToken (Keyword "int") *> parseVar <* parseToks (map Paren "(){")
+parseFunctionDecl = (\(_, p) (n, _) a b -> FunctionDecl ((n, a, b), p)) <$> parseToken (Keyword "int")
+                    <*> parseVar
+                    <*> (parseToken (Paren '(') *> optional argumentP  <* parseToken (Paren ')'))
+                    <*> (Just <$> (parseToken (Paren '{') *> parseBlock <* parseToken (Paren '}')) <|> Nothing <$ parseSemicolon)
+                  where argumentP = Parser $ \ts -> do
+                                                     ((a, _), r) <- runParser (parseToken (Keyword "int") *> parseVar) ts
+                                                     let t = runParser (parseToken Comma *> argumentP) r
+                                                     if isNothing t then
+                                                       Just ([a], r)
+                                                     else
+                                                       let (ra, r') = fromJust t
+                                                       in Just (a:ra, r')
 
 parseProgram :: Parser Program
-parseProgram = (flip $ curry Program) (0, 0) <$> parseFunctionDecl
+parseProgram = Program <$> fsP
+                  where fsP = Parser (\ts -> do
+                               (f, r) <- runParser parseFunctionDecl ts
+                               let t = runParser fsP r
+                               if isNothing t then
+                                 Just ([f], r)
+                               else
+                                 let (rf, r') = fromJust t
+                                 in Just (f:rf, r'))
 
 parse :: [Loc Token] -> Maybe Program
 parse tk = fst <$> runParser parseProgram tk
