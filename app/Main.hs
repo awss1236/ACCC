@@ -41,7 +41,7 @@ main = do
         putStrLn $ pPrintProg pts
         if isNothing $ check pts then do
           putStrLn "\nASM:"
-          putStrLn $ genProgAsm True pts
+          putStrLn $ genProgAsm pts
 
           let asf = sf -<.> "s"
           writeFile asf (genProgAsm pts)
