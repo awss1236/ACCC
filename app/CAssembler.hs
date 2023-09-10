@@ -63,6 +63,7 @@ genFuncAsm (FunctionDecl ((n, args, Just b), _)) = " .globl " ++n++"\n" ++n++":\
       where mReturnZero (Stat (Return _)) = ""
             mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $42, %eax\n  ret\n"
             toStack :: [String] -> [(String, Int)]
+            toStack [] = []
             toStack (s:ss) = (s, 8) : (map (\(a, i) -> (a, i+4)) $ toStack ss)
 
 genProgAsm :: Program -> String
