@@ -176,8 +176,9 @@ parseBlock = Parser (\ts -> do
 parseFunctionDecl :: Parser FunctionDecl
 parseFunctionDecl = (\(_, p) (n, _) a b -> FunctionDecl ((n, a, b), p)) <$> parseToken (Keyword "int")
                     <*> parseVar
-                    <*> (parseToken (Paren '(') *> (argumentP <|> pure [])  <* parseToken (Paren ')'))
-                    <*> (Just <$> (parseToken (Paren '{') *> parseBlock <* parseToken (Paren '}')) <|> Nothing <$ parseSemicolon)
+                    <*> (parseToken (Paren '(') *> (argumentP <|> pure []) <* parseToken (Paren ')'))
+                    <*> ((Just <$> (parseToken (Paren '{') *> parseBlock <* parseToken (Paren '}')))
+                        <|> (Nothing <$ parseSemicolon))
                   where argumentP = Parser $ \ts -> do
                                                      ((a, _), r) <- runParser (parseToken (Keyword "int") *> parseVar) ts
                                                      let t = runParser (parseToken Comma *> argumentP) r
