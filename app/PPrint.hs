@@ -55,7 +55,11 @@ pPrintBlockItem (Decl (Declare ((v, Just e ), _))) = ["DECLARE $" ++ v ++ " = " 
 
 pPrintFunc :: FunctionDecl -> [String]
 pPrintFunc (FunctionDecl ((n, args, Nothing), _)) = []
-pPrintFunc (FunctionDecl ((n, args, Just bs), _)) = ["FUN INT " ++ n ++ ":", "  params: (" ++ formArgs args ++ ")", "  body:"] ++ concatMap (map ("  "++).pPrintBlockItem) bs
+pPrintFunc (FunctionDecl ((n, args, Just bs), _)) = ["FUN INT " ++ n ++ ":", "  params: (" ++ formArgs args ++ ")", "  body:"] ++ concatMap (map ("  "++).pPrintBlockItem) bs ++ [""]
+
+pPrintTop :: ToplevelItem -> [String]
+pPrintTop (Func f) = pPrintFunc f
+pPrintTop (GVar d) = pPrintBlockItem (Decl d)
 
 pPrintProg :: Program -> String
-pPrintProg (Program fs) = foldl (\acc s -> acc ++ s ++ "\n") "" $ concatMap (\f -> pPrintFunc f ++ [""]) fs
+pPrintProg (Program fs) = foldl (\acc s -> acc ++ s ++ "\n") "" $ concatMap pPrintTop fs
