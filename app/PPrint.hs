@@ -30,6 +30,12 @@ pPrintExp (Constant (i, _)) = show i
 pPrintExp (UnaryAct ((o, e), _)) = pPrintUnary o ++ "(" ++ pPrintExp e ++ ")"
 pPrintExp (BinAct ((o, e1, e2), _)) = "(" ++ pPrintExp e1 ++ pPrintBinary o ++ pPrintExp e2 ++ ")"
 pPrintExp (Tern ((c, e1, e2), _)) = "(IF " ++ pPrintExp c ++ " THEN " ++ pPrintExp e1 ++ " ELSE " ++ pPrintExp e2 ++ ")"
+pPrintExp (Call ((f, args), _)) = "{" ++ f ++ "(" ++ formArgs (map pPrintExp args) ++ ")}"
+
+formArgs :: [String] -> String
+formArgs [] = ""
+formArgs [s] = s
+formArgs (s:ss) = s++", "++formArgs ss
 
 pPrintBlockItem :: BlockItem -> [String]
 pPrintBlockItem (Stat (Expr (Just e))) = [pPrintExp e]
@@ -48,7 +54,8 @@ pPrintBlockItem (Decl (Declare ((v, Nothing), _))) = ["DECLARE $" ++ v]
 pPrintBlockItem (Decl (Declare ((v, Just e ), _))) = ["DECLARE $" ++ v ++ " = " ++ pPrintExp e]
 
 pPrintFunc :: FunctionDecl -> [String]
-pPrintFunc (FunctionDecl ((n, s), _)) = ["FUN INT "++n++":", "  params: ()", "  body:"] ++ concatMap (map ("  "++).pPrintBlockItem) s
+pPrintFunc (FunctionDecl ((n, args, Nothing), _)) = []
+pPrintFunc (FunctionDecl ((n, args, Just bs), _)) = ["FUN INT " ++ n ++ ":", "  params: (" ++ formArgs args ++ ")", "  body:"] ++ concatMap (map ("  "++).pPrintBlockItem) bs
 
 pPrintProg :: Program -> String
-pPrintProg (Program (f, _)) = foldl (\acc s -> acc ++ s ++ "\n") "" $ pPrintFunc f
+pPrintProg (Program fs) = foldl (\acc s -> acc ++ s ++ "\n") "" $ concatMap (\f -> pPrintFunc f ++ [""]) fs
