@@ -21,7 +21,8 @@ data Statement    = Expr (Maybe Exp) | Return (Loc Exp) | Break | Continue |
                     Scope (Loc [BlockItem]) deriving (Show)
 data BlockItem    = Stat Statement | Decl Declare deriving (Show)
 data FunctionDecl = FunctionDecl (Loc (String, [String], Maybe [BlockItem])) deriving (Show)
-data Program      = Program [FunctionDecl] deriving (Show)
+data ToplevelItem = Func FunctionDecl | GVar Declare deriving (Show)
+data Program      = Program [ToplevelItem] deriving (Show)
 
 newtype Parser a = Parser {runParser :: [Loc Token] -> Maybe (a, [Loc Token])}
 
@@ -191,7 +192,7 @@ parseFunctionDecl = (\(_, p) (n, _) a b -> FunctionDecl ((n, a, b), p)) <$> pars
 parseProgram :: Parser Program
 parseProgram = Program <$> fsP
                   where fsP = Parser (\ts -> do
-                               (f, r) <- runParser parseFunctionDecl ts
+                               (f, r) <- runParser (Func <$> parseFunctionDecl <|> GVar <$> parseDeclare) ts
                                let t = runParser fsP r
                                if isNothing t then
                                  Just ([f], r)
