@@ -26,6 +26,7 @@ genExpAsm m (BinAct((BGe,   e1, e2), _)) = genExpAsm m e1++"  push   %eax\n"++ge
 genExpAsm m (Set((n, e), _)) = genExpAsm m e++"  movl   %eax, "++show (snd m M.! n)++"(%ebp)\n"
 genExpAsm m (Var(n, _)) = "  movl   "++show (snd m M.! n)++"(%ebp), %eax\n"
 genExpAsm m (Tern ((c, e1, e2), (x, y))) = let p = "_"++show x++"_"++show y in genExpAsm m c++"  cmpl   $0, %eax\n  je     _els"++p++"\n"++genExpAsm m e1++"  jmp    _end"++p++"\n_els"++p++":\n"++genExpAsm m e2++"_end"++p++":\n"
+genExpAsm m (Call ((f, args), _)) = concat (reverse (map (\e -> genExpAsm m e++"  push   %eax\n") args))++"  call   "++f++"\n  addl   $"++show (4*length args)++", %esp\n"
 
 genStatementAsm :: (StackState, String) -> Statement -> (String, String)
 genStatementAsm (im, l) (Return (exp, _)) = (genExpAsm im exp++"  movl   %ebp, %esp\n  pop    %ebp\n  ret\n", l)
@@ -57,10 +58,13 @@ genBlockAsm (stk, l) bs = let (asm, ((_, scp), _)) = foldl (\(asm, s) b -> let (
                      in asm++"  addl   $"++show (length scp * 4)++", %esp\n"
 
 genFuncAsm :: FunctionDecl -> String
-genFuncAsm (FunctionDecl ((n, []), _)) = " .globl "++n++"\n"++n++":\n  movl   $0, %eax\n  ret\n"
-genFuncAsm (FunctionDecl ((n, s), _)) = " .globl " ++n++"\n" ++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ genBlockAsm ((-4, M.empty), "NOT_IN_LOOP") s++mReturnZero (last s)
+genFuncAsm (FunctionDecl ((_, _, Nothing), _))   = "\n"
+genFuncAsm (FunctionDecl ((n, _, Just []), _))   = " .globl "++n++"\n"++n++":\n  movl   $0, %eax\n  ret\n"
+genFuncAsm (FunctionDecl ((n, args, Just b), _)) = " .globl " ++n++"\n" ++n++":\n  push   %ebp\n  movl   %esp, %ebp\n"++ genBlockAsm ((-4, M.fromList $ toStack args), "NOT_IN_LOOP") b++mReturnZero (last b)
       where mReturnZero (Stat (Return _)) = ""
-            mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $0, %eax\n  ret\n"
+            mReturnZero _ = "  movl   %ebp, %esp\n  pop    %ebp\n  movl   $42, %eax\n  ret\n"
+            toStack :: [String] -> [(String, Int)]
+            toStack (s:ss) = (s, 8) : (map (\(a, i) -> (a, i+4)) $ toStack ss)
 
 genProgAsm :: Program -> String
-genProgAsm (Program (f, _)) = genFuncAsm f
+genProgAsm (Program f) = concatMap genFuncAsm f
