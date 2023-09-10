@@ -20,7 +20,7 @@ data Statement    = Expr (Maybe Exp) | Return (Loc Exp) | Break | Continue |
                     While (Loc (Exp, Statement)) | Do (Loc (Statement, Exp)) |
                     Scope (Loc [BlockItem]) deriving (Show)
 data BlockItem    = Stat Statement | Decl Declare deriving (Show)
-data FunctionDecl = FunctionDecl (Loc (String, Maybe [String], Maybe [BlockItem])) deriving (Show)
+data FunctionDecl = FunctionDecl (Loc (String, [String], Maybe [BlockItem])) deriving (Show)
 data Program      = Program [FunctionDecl] deriving (Show)
 
 newtype Parser a = Parser {runParser :: [Loc Token] -> Maybe (a, [Loc Token])}
@@ -176,7 +176,7 @@ parseBlock = Parser (\ts -> do
 parseFunctionDecl :: Parser FunctionDecl
 parseFunctionDecl = (\(_, p) (n, _) a b -> FunctionDecl ((n, a, b), p)) <$> parseToken (Keyword "int")
                     <*> parseVar
-                    <*> (parseToken (Paren '(') *> optional argumentP  <* parseToken (Paren ')'))
+                    <*> (parseToken (Paren '(') *> (argumentP <|> pure [])  <* parseToken (Paren ')'))
                     <*> (Just <$> (parseToken (Paren '{') *> parseBlock <* parseToken (Paren '}')) <|> Nothing <$ parseSemicolon)
                   where argumentP = Parser $ \ts -> do
                                                      ((a, _), r) <- runParser (parseToken (Keyword "int") *> parseVar) ts
