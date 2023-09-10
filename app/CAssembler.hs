@@ -1,5 +1,4 @@
 module CAssembler where
-import CLexer
 import CParser
 import qualified Data.Map as M
 
